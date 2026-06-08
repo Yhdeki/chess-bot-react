@@ -1,18 +1,8 @@
-import type { ChessBoard } from "./chessBoard";
-
 export abstract class Piece {
 	color: boolean;
-	chess_board: ChessBoard;
-	constructor(color: boolean, board: ChessBoard) {
+	constructor(color: boolean) {
 		this.color = color;
-		this.chess_board = board;
 	}
-	abstract move(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): void;
 	abstract isLegalMove(
 		row: number,
 		column: number,
@@ -23,18 +13,79 @@ export abstract class Piece {
 
 export class King extends Piece {
 	score: number = Infinity;
-	constructor(color: boolean, board: ChessBoard) {
-		super(color, board);
+	constructor(color: boolean) {
+		super(color);
 	}
-	move(
+	isLegalMove(
 		row: number,
 		column: number,
 		target_row: number,
 		target_column: number,
-	) {
-		if (this.isLegalMove(row, column, target_row, target_column)) {
-			this.chess_board.chessBoard |= this.chess_board.whitePieces;
-		}
+	): boolean {
+		return true;
+	}
+}
+
+export class Queen extends Piece {
+	score: number = 9;
+	constructor(color: boolean) {
+		super(color);
+	}
+	isLegalMove(
+		row: number,
+		column: number,
+		target_row: number,
+		target_column: number,
+	): boolean {
+		return true;
+	}
+}
+export class Rook extends Piece {
+	score: number = 5;
+	constructor(color: boolean) {
+		super(color);
+	}
+	isLegalMove(
+		row: number,
+		column: number,
+		target_row: number,
+		target_column: number,
+	): boolean {
+		return true;
+	}
+}
+export class Bishop extends Piece {
+	score: number = 3.2;
+	constructor(color: boolean) {
+		super(color);
+	}
+	isLegalMove(
+		row: number,
+		column: number,
+		target_row: number,
+		target_column: number,
+	): boolean {
+		return true;
+	}
+}
+export class Knight extends Piece {
+	score: number = 3;
+	constructor(color: boolean) {
+		super(color);
+	}
+	isLegalMove(
+		row: number,
+		column: number,
+		target_row: number,
+		target_column: number,
+	): boolean {
+		return true;
+	}
+}
+export class Pawn extends Piece {
+	score: number = 1;
+	constructor(color: boolean) {
+		super(color);
 	}
 	isLegalMove(
 		row: number,

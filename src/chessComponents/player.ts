@@ -1,5 +1,5 @@
-import { ChessBoard } from "./chessBoard";
-import { Piece } from "./pieces";
+import { ChessBoard } from "./chessBoard.ts";
+import { Piece } from "./pieces.ts";
 
 export class Player {
 	score: number;
@@ -17,5 +17,23 @@ export class Player {
 		this.color = color;
 		this.chess_board = board;
 		this.pieces = pieces;
+	}
+	move(
+		piece: Piece,
+		starting_row: number,
+		starting_column: number,
+		target_row: number,
+		target_column: number,
+	) {
+		if (
+			piece.isLegalMove(
+				starting_row,
+				starting_column,
+				target_row,
+				target_column,
+			)
+		) {
+
+		}
 	}
 }
