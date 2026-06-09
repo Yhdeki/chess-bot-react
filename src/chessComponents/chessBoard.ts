@@ -57,18 +57,18 @@ export class ChessBoard {
 	getPieceAtSquare(squareIndex: number): string | null {
 		const mask = 1n << BigInt(squareIndex);
 
-		if (((this.whitePawnsBoard | this.blackPawnsBoard) & mask) !== 0n)
-			return "pawn";
-		if ((this.whiteKnightsBoard | (this.blackKnightsBoard & mask)) !== 0n)
-			return "knight";
-		if ((this.whiteBishopsBoard | (this.blackBishopsBoard & mask)) !== 0n)
-			return "bishop";
-		if ((this.whiteRooksBoard | (this.blackRooksBoard & mask)) !== 0n)
-			return "rook";
-		if ((this.whiteQueensBoard | (this.blackQueensBoard & mask)) !== 0n)
-			return "queen";
-		if ((this.whiteKingsBoard | (this.blackKingsBoard & mask)) !== 0n)
-			return "king";
+		if (this.whitePawnsBoard & mask) return "white pawn";
+		if (this.blackPawnsBoard & mask) return "black pawn";
+		if (this.whiteKnightsBoard & mask) return "white knight";
+		if (this.blackKnightsBoard & mask) return "black knight";
+		if (this.whiteBishopsBoard & mask) return "white bishop";
+		if (this.blackBishopsBoard & mask) return "black bishop";
+		if (this.whiteRooksBoard & mask) return "white rook";
+		if (this.blackRooksBoard & mask) return "black rook";
+		if (this.whiteQueensBoard & mask) return "white queen";
+		if (this.blackQueensBoard & mask) return "black queen";
+		if (this.whiteKingsBoard & mask) return "white king";
+		if (this.blackKingsBoard & mask) return "black king";
 		return null;
 	}
 }

@@ -34,3 +34,14 @@
 .dark {
 	background-color: #b58863; /* Traditional dark brown */
 }
+.piece-img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain; /*  stretching */
+}
+
+.piece-container {
+    width: 100%;
+	height: 100%;
+    object-fit: contain;
+}
