@@ -1,39 +1,29 @@
 import { ChessBoard } from "./chessBoard.ts";
 import { Piece } from "./pieces.ts";
+import { getPieceTypeByScore, TimeManagementSec, type ChessMove } from "./types.ts";
+import { Color } from "./types.ts";
 
 export class Player {
 	score: number;
 	color: boolean;
-	chess_board: ChessBoard;
+	chessBoard: ChessBoard;
 	pieces: Piece[];
+	timeLeft: number;
 
-	constructor(
-		score: number,
-		color: boolean,
-		board: ChessBoard,
-		pieces: Array<Piece>,
-	) {
-		this.score = score;
+	constructor(color: boolean, board: ChessBoard, pieces: Array<Piece>) {
+		this.score = 0;
 		this.color = color;
-		this.chess_board = board;
+		this.chessBoard = board;
 		this.pieces = pieces;
+		this.timeLeft = TimeManagementSec.TenMin;
 	}
-	move(
-		piece: Piece,
-		starting_row: number,
-		starting_column: number,
-		target_row: number,
-		target_column: number,
-	) {
-		if (
-			piece.isLegalMove(
-				starting_row,
-				starting_column,
-				target_row,
-				target_column,
-			)
-		) {
-
+	movePiece(piece: Piece, move: ChessMove) {
+		if (piece.isLegalMove(move)) {
+			this.chessBoard.movePiece(
+				move,
+				getPieceTypeByScore(piece.score),
+				this.color ? Color.White : Color.Black,
+			);
 		}
 	}
 }

@@ -1,14 +1,11 @@
+import type { ChessMove } from "./types";
 export abstract class Piece {
 	color: boolean;
+	abstract score: number;
 	constructor(color: boolean) {
 		this.color = color;
 	}
-	abstract isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean;
+	abstract isLegalMove(move: ChessMove): boolean;
 }
 
 export class King extends Piece {
@@ -16,13 +13,11 @@ export class King extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
+	}
+	isChecked(): boolean {
+		return false;
 	}
 }
 
@@ -31,12 +26,7 @@ export class Queen extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -45,12 +35,7 @@ export class Rook extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -59,12 +44,7 @@ export class Bishop extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -73,12 +53,7 @@ export class Knight extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -87,12 +62,7 @@ export class Pawn extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(
-		row: number,
-		column: number,
-		target_row: number,
-		target_column: number,
-	): boolean {
+	isLegalMove(move: ChessMove): boolean {
 		return true;
 	}
 }
