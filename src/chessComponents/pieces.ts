@@ -13,7 +13,7 @@ export class King extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 	isChecked(): boolean {
@@ -26,7 +26,7 @@ export class Queen extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -35,7 +35,7 @@ export class Rook extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -44,7 +44,7 @@ export class Bishop extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -53,7 +53,7 @@ export class Knight extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 }
@@ -62,7 +62,7 @@ export class Pawn extends Piece {
 	constructor(color: boolean) {
 		super(color);
 	}
-	isLegalMove(move: ChessMove): boolean {
+	isLegalMove(_move: ChessMove): boolean {
 		return true;
 	}
 }

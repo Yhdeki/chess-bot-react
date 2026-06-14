@@ -19,6 +19,14 @@ export const TimeManagementSec = {
 	TenMin: 600,
 	ThirtyMin: 1800,
 } as const;
+
+export const CASTLE_RIGHTS = {
+	WK: 0b0001, // White Kingside (1)
+	WQ: 0b0010, // White Queenside (2)
+	BK: 0b0100, // Black Kingside (4)
+	BQ: 0b1000, // Black Queenside (8)
+	NONE: 0b0000, // Neither player can castle
+};
 export interface ChessMove {
 	from: number;
 	to: number;

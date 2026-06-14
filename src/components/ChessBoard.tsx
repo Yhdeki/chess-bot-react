@@ -6,15 +6,7 @@ import { InteractivePiece } from "./Piece.tsx";
 
 function ChessBoard() {
 	const squares = [];
-	const {
-		board,
-		selectedSquare,
-		legalMoves,
-		turn,
-		moveHistory,
-		selectSquare,
-		makeMove,
-	} = useGameState();
+	const { board, moveHistory } = useGameState();
 
 	// Generate 8 rows (0 to 7) and 8 columns (0 to 7)
 	for (let row = 0; row < 8; row++) {
@@ -43,7 +35,7 @@ function ChessBoard() {
 			<div className="chess-board">{squares}</div>
 			<EvalBar value={0} id="white-bar" />
 			<EvalBar value={0} id="black-bar" />
-            <MoveHistory moves={moveHistory} />
+			<MoveHistory moves={moveHistory} />
 		</div>
 	);
 }
