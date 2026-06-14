@@ -1,6 +1,10 @@
 import { ChessBoard } from "./chessBoard.ts";
 import { Piece } from "./pieces.ts";
-import { getPieceTypeByScore, TimeManagementSec, type ChessMove } from "./types.ts";
+import {
+	getPieceTypeByScore,
+	TimeManagementSec,
+	type ChessMove,
+} from "./types.ts";
 import { Color } from "./types.ts";
 
 export class Player {
@@ -18,12 +22,15 @@ export class Player {
 		this.timeLeft = TimeManagementSec.TenMin;
 	}
 	movePiece(piece: Piece, move: ChessMove) {
-		if (piece.isLegalMove(move)) {
+		if (this.isLegalMove(move)) {
 			this.chessBoard.movePiece(
 				move,
 				getPieceTypeByScore(piece.score),
 				this.color ? Color.White : Color.Black,
 			);
 		}
+	}
+	isLegalMove(move: ChessMove) {
+		return move.to in this.chessBoard.getLegalMoves(move.from, this.color);
 	}
 }

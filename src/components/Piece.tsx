@@ -43,10 +43,7 @@ export const InteractivePiece: React.FC<ChessPieceProps> = ({
 	const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
 		setIsDragging(true);
 		// Store piece data and source square in the drag dataTransfer object
-		e.dataTransfer.setData(
-			"text/plain",
-			JSON.stringify({ type, color }),
-		);
+		e.dataTransfer.setData("text/plain", JSON.stringify({ type, color }));
 		e.dataTransfer.effectAllowed = "move";
 	};
 
@@ -78,7 +75,7 @@ export const InteractivePiece: React.FC<ChessPieceProps> = ({
 	);
 };
 
-const getPieceImgPath = (pieceName: string): string => {
+export const getPieceImgPath = (pieceName: string): string => {
 	const PREFIX: string = "src/assets/Chess_";
 	const SUFFIX: string = "t45.svg";
 	const colorLetter = pieceName[0].toLowerCase() === "w" ? "l" : "d";

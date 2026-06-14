@@ -1,4 +1,5 @@
 import { useGameState } from "../chessComponents/useGameState.ts";
+import ChessPlayer from "./ChessPlayer.tsx";
 import "./components.css";
 import EvalBar from "./EvalBar.tsx";
 import MoveHistory from "./MoveHistory.tsx";
@@ -33,6 +34,8 @@ function ChessBoard() {
 	return (
 		<div className="chess-board-container">
 			<div className="chess-board">{squares}</div>
+            <ChessPlayer></ChessPlayer>
+            <ChessPlayer></ChessPlayer>
 			<EvalBar value={0} id="white-bar" />
 			<EvalBar value={0} id="black-bar" />
 			<MoveHistory moves={moveHistory} />

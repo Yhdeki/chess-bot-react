@@ -1,20 +1,14 @@
-import type { ChessMove } from "./types";
 export abstract class Piece {
-	color: boolean;
+	abstract color: boolean;
 	abstract score: number;
-	constructor(color: boolean) {
-		this.color = color;
-	}
-	abstract isLegalMove(move: ChessMove): boolean;
 }
 
 export class King extends Piece {
+	color: boolean;
 	score: number = Infinity;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 	isChecked(): boolean {
 		return false;
@@ -22,47 +16,42 @@ export class King extends Piece {
 }
 
 export class Queen extends Piece {
+	color: boolean;
 	score: number = 9;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 }
 export class Rook extends Piece {
+	color: boolean;
 	score: number = 5;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 }
 export class Bishop extends Piece {
+	color: boolean;
 	score: number = 3.2;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 }
 export class Knight extends Piece {
+	color: boolean;
 	score: number = 3;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 }
 export class Pawn extends Piece {
+	color: boolean;
 	score: number = 1;
 	constructor(color: boolean) {
-		super(color);
-	}
-	isLegalMove(_move: ChessMove): boolean {
-		return true;
+		super();
+		this.color = color;
 	}
 }
