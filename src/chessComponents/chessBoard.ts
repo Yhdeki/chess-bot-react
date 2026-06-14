@@ -1,5 +1,10 @@
-import { precomputeKnights } from "./precomputedMoves.ts";
-import { Piece, Color, type ChessMove } from "./types";
+import {
+	precomputeKnights,
+	getRookAttacks,
+	getBishopAttacks,
+	getQueenAttacks,
+} from "./precomputedMoves.ts";
+import { Piece, Color, CASTLE_RIGHTS, type ChessMove } from "./types";
 
 const sqToBB = (sq: number): bigint => 1n << BigInt(sq);
 export class ChessBoard {
@@ -45,6 +50,12 @@ export class ChessBoard {
 		this.updateOccupancy();
 	}
 
+	// en-passant target square (index) if available
+	enPassantSquare: number | null = null;
+
+	// for fifty-move rule
+	halfMoveClock: number = 0;
+
 	public updateOccupancy() {
 		this.colors[Color.White] = this.pieces
 			.slice(0, 6)
@@ -55,31 +66,186 @@ export class ChessBoard {
 		this.combinedOccupancy =
 			this.colors[Color.White] | this.colors[Color.Black];
 	}
+	/**
+	 * Returns true if `square` is attacked by `byColor`.
+	 */
+	public isSquareAttacked(square: number, byColor: Color): boolean {
+		const enemyPawnBB = this.pieces[byColor * 6 + Piece.Pawn];
+		const enemyKnightBB = this.pieces[byColor * 6 + Piece.Knight];
+		const enemyBishopBB = this.pieces[byColor * 6 + Piece.Bishop];
+		const enemyRookBB = this.pieces[byColor * 6 + Piece.Rook];
+		const enemyQueenBB = this.pieces[byColor * 6 + Piece.Queen];
+		const enemyKingBB = this.pieces[byColor * 6 + Piece.King];
+		const occ = this.combinedOccupancy;
+
+		// Pawn attacks: check squares where an enemy pawn would sit to attack `square`
+		if (byColor === Color.White) {
+			const fromLeft = square - 9;
+			const fromRight = square - 7;
+			if (fromLeft >= 0 && (enemyPawnBB & sqToBB(fromLeft)) !== 0n)
+				return true;
+			if (fromRight >= 0 && (enemyPawnBB & sqToBB(fromRight)) !== 0n)
+				return true;
+		} else {
+			const fromLeft = square + 7;
+			const fromRight = square + 9;
+			if (fromLeft <= 63 && (enemyPawnBB & sqToBB(fromLeft)) !== 0n)
+				return true;
+			if (fromRight <= 63 && (enemyPawnBB & sqToBB(fromRight)) !== 0n)
+				return true;
+		}
+
+		// Knights
+		if ((ChessBoard.KNIGHT_ATTACKS[square] & enemyKnightBB) !== 0n)
+			return true;
+
+		// Bishops / Queens (diagonals)
+		if (
+			(getBishopAttacks(square, occ) & (enemyBishopBB | enemyQueenBB)) !==
+			0n
+		)
+			return true;
+
+		// Rooks / Queens (straight)
+		if ((getRookAttacks(square, occ) & (enemyRookBB | enemyQueenBB)) !== 0n)
+			return true;
+
+		// King (adjacent)
+		const deltas = [-9, -8, -7, -1, 1, 7, 8, 9];
+		for (const d of deltas) {
+			const s = square + d;
+			if (s < 0 || s > 63) continue;
+			if ((enemyKingBB & sqToBB(s)) !== 0n) return true;
+		}
+
+		return false;
+	}
 
 	public movePiece(move: ChessMove, pieceType: Piece, color: Color): void {
 		const fromMask = 1n << BigInt(move.from);
 		const toMask = 1n << BigInt(move.to);
-		const moveMask = fromMask | toMask;
 		const pIdx = color * 6 + pieceType;
 
-		// 1. Move our piece
-		this.pieces[pIdx] ^= moveMask;
-
-		// 2. Handle potential capture
+		let capturedEnPassant = false;
 		const enemyColor = color === Color.White ? Color.Black : Color.White;
-		if ((this.colors[enemyColor] & toMask) !== 0n) {
-			// Find which enemy piece was on that square and remove it
-			const enemyStart = enemyColor * 6;
-			for (let i = enemyStart; i < enemyStart + 6; i++) {
+
+		// Castling handling for king
+		if (pieceType === Piece.King) {
+			if (color === Color.White) {
+				// White kingside
+				if (
+					move.from === 4 &&
+					move.to === 6 &&
+					this.canCastle(CASTLE_RIGHTS.WK)
+				) {
+					// move rook h1 to f1
+					this.pieces[Color.White * 6 + Piece.Rook] &= ~sqToBB(7);
+					this.pieces[Color.White * 6 + Piece.Rook] |= sqToBB(5);
+				}
+				// White queen-side
+				if (
+					move.from === 4 &&
+					move.to === 2 &&
+					this.canCastle(CASTLE_RIGHTS.WQ)
+				) {
+					this.pieces[Color.White * 6 + Piece.Rook] &= ~sqToBB(0);
+					this.pieces[Color.White * 6 + Piece.Rook] |= sqToBB(3);
+				}
+				this.revokeCastlingRights(CASTLE_RIGHTS.WK | CASTLE_RIGHTS.WQ);
+			} else {
+				// Black kingside
+				if (
+					move.from === 60 &&
+					move.to === 62 &&
+					this.canCastle(CASTLE_RIGHTS.BK)
+				) {
+					this.pieces[Color.Black * 6 + Piece.Rook] &= ~sqToBB(63);
+					this.pieces[Color.Black * 6 + Piece.Rook] |= sqToBB(61);
+				}
+				// Black queen-side
+				if (
+					move.from === 60 &&
+					move.to === 58 &&
+					this.canCastle(CASTLE_RIGHTS.BQ)
+				) {
+					this.pieces[Color.Black * 6 + Piece.Rook] &= ~sqToBB(56);
+					this.pieces[Color.Black * 6 + Piece.Rook] |= sqToBB(59);
+				}
+				this.revokeCastlingRights(CASTLE_RIGHTS.BK | CASTLE_RIGHTS.BQ);
+			}
+		}
+
+		// En-passant capture
+		if (pieceType === Piece.Pawn && this.enPassantSquare === move.to) {
+			const capturedPawnSquare =
+				color === Color.White ? move.to - 8 : move.to + 8;
+			this.pieces[enemyColor * 6 + Piece.Pawn] &=
+				~sqToBB(capturedPawnSquare);
+			capturedEnPassant = true;
+		}
+
+		// Normal capture
+		if ((this.combinedOccupancy & toMask) !== 0n) {
+			for (let i = enemyColor * 6; i < enemyColor * 6 + 6; i++) {
 				if ((this.pieces[i] & toMask) !== 0n) {
-					this.pieces[i] ^= toMask; // Clear enemy piece
+					this.pieces[i] &= ~toMask;
 					break;
 				}
 			}
 		}
 
-		// 3. Recalculate occupancy masks
+		// Move piece
+		this.pieces[pIdx] &= ~fromMask;
+		this.pieces[pIdx] |= toMask;
+
+		// Rook moved -> revoke castling rights for that rook side
+		if (pieceType === Piece.Rook) {
+			if (color === Color.White) {
+				if (move.from === 0)
+					this.revokeCastlingRights(CASTLE_RIGHTS.WQ);
+				if (move.from === 7)
+					this.revokeCastlingRights(CASTLE_RIGHTS.WK);
+			} else {
+				if (move.from === 56)
+					this.revokeCastlingRights(CASTLE_RIGHTS.BQ);
+				if (move.from === 63)
+					this.revokeCastlingRights(CASTLE_RIGHTS.BK);
+			}
+		}
+
+		// If we captured a rook on destination, revoke opponent castling rights
+		if (!capturedEnPassant) {
+			if (move.to === 0) this.revokeCastlingRights(CASTLE_RIGHTS.WQ);
+			if (move.to === 7) this.revokeCastlingRights(CASTLE_RIGHTS.WK);
+			if (move.to === 56) this.revokeCastlingRights(CASTLE_RIGHTS.BQ);
+			if (move.to === 63) this.revokeCastlingRights(CASTLE_RIGHTS.BK);
+		}
+
+		// en-passant square update
+		this.enPassantSquare = null;
+		if (pieceType === Piece.Pawn) {
+			if (color === Color.White && move.to - move.from === 16)
+				this.enPassantSquare = move.from + 8;
+			if (color === Color.Black && move.from - move.to === 16)
+				this.enPassantSquare = move.from - 8;
+		}
+
+		// Promotion -> promote to queen
+		if (pieceType === Piece.Pawn) {
+			const rank = Math.floor(move.to / 8);
+			if (
+				(color === Color.White && rank === 7) ||
+				(color === Color.Black && rank === 0)
+			) {
+				this.pieces[color * 6 + Piece.Pawn] &= ~toMask;
+				this.pieces[color * 6 + Piece.Queen] |= toMask;
+			}
+		}
+
+		// Recalculate occupancy and change side
 		this.updateOccupancy();
+		this.sideToMove = enemyColor;
+		this.totalNumOfMoves++;
 	}
 	clone(): ChessBoard {
 		return new ChessBoard([...this.pieces]);
@@ -113,10 +279,9 @@ export class ChessBoard {
 
 		if (!foundPiece) return [];
 
-		const enemyBits =
-			this.colors[
-				foundPiece.color === Color.White ? Color.Black : Color.White
-			];
+		const enemyColor =
+			foundPiece.color === Color.White ? Color.Black : Color.White;
+		const enemyBits = this.colors[enemyColor];
 		const allOcc = this.combinedOccupancy;
 
 		const fileOf = (sq: number) => sq % 8;
@@ -139,15 +304,62 @@ export class ChessBoard {
 		} else if (pieceType === Piece.King) {
 			const deltas = [-9, -8, -7, -1, 1, 7, 8, 9];
 			for (const d of deltas) addIfValid(squareIdx + d);
-			// remove moves that wrap files
-			// simple filter below when converting mask to indices
 			movesMask &= ~ownPieces;
+			// castling
+			if (color === Color.White) {
+				if (this.canCastle(CASTLE_RIGHTS.WK)) {
+					// squares 5 and 6 must be empty and not attacked
+					if (
+						(allOcc & sqToBB(5)) === 0n &&
+						(allOcc & sqToBB(6)) === 0n &&
+						!this.isSquareAttacked(4, enemyColor) &&
+						!this.isSquareAttacked(5, enemyColor) &&
+						!this.isSquareAttacked(6, enemyColor)
+					) {
+						movesMask |= sqToBB(6);
+					}
+				}
+				if (this.canCastle(CASTLE_RIGHTS.WQ)) {
+					if (
+						(allOcc & sqToBB(1)) === 0n &&
+						(allOcc & sqToBB(2)) === 0n &&
+						(allOcc & sqToBB(3)) === 0n &&
+						!this.isSquareAttacked(4, enemyColor) &&
+						!this.isSquareAttacked(3, enemyColor) &&
+						!this.isSquareAttacked(2, enemyColor)
+					) {
+						movesMask |= sqToBB(2);
+					}
+				}
+			} else {
+				if (this.canCastle(CASTLE_RIGHTS.BK)) {
+					if (
+						(allOcc & sqToBB(61)) === 0n &&
+						(allOcc & sqToBB(62)) === 0n &&
+						!this.isSquareAttacked(60, enemyColor) &&
+						!this.isSquareAttacked(61, enemyColor) &&
+						!this.isSquareAttacked(62, enemyColor)
+					) {
+						movesMask |= sqToBB(62);
+					}
+				}
+				if (this.canCastle(CASTLE_RIGHTS.BQ)) {
+					if (
+						(allOcc & sqToBB(57)) === 0n &&
+						(allOcc & sqToBB(58)) === 0n &&
+						(allOcc & sqToBB(59)) === 0n &&
+						!this.isSquareAttacked(60, enemyColor) &&
+						!this.isSquareAttacked(59, enemyColor) &&
+						!this.isSquareAttacked(58, enemyColor)
+					) {
+						movesMask |= sqToBB(58);
+					}
+				}
+			}
 		} else if (pieceType === Piece.Pawn) {
 			if (color === Color.White) {
-				// single push
 				const one = squareIdx + 8;
 				if (one <= 63 && (allOcc & sqToBB(one)) === 0n) addIfValid(one);
-				// double push from rank 1 (index 1)
 				const rank = rankOf(squareIdx);
 				if (rank === 1) {
 					const two = squareIdx + 16;
@@ -157,7 +369,6 @@ export class ChessBoard {
 					)
 						addIfValid(two);
 				}
-				// captures
 				const capL = squareIdx + 7;
 				const capR = squareIdx + 9;
 				if (
@@ -173,7 +384,6 @@ export class ChessBoard {
 				)
 					addIfValid(capR);
 			} else {
-				// black pawns go down
 				const one = squareIdx - 8;
 				if (one >= 0 && (allOcc & sqToBB(one)) === 0n) addIfValid(one);
 				const rank = rankOf(squareIdx);
@@ -205,24 +415,13 @@ export class ChessBoard {
 			pieceType === Piece.Rook ||
 			pieceType === Piece.Queen
 		) {
-			const directions: number[] = [];
-			if (pieceType === Piece.Bishop || pieceType === Piece.Queen)
-				directions.push(-9, -7, 7, 9);
-			if (pieceType === Piece.Rook || pieceType === Piece.Queen)
-				directions.push(-8, -1, 1, 8);
-			for (const d of directions) {
-				let to = squareIdx + d;
-				while (to >= 0 && to <= 63) {
-					// prevent wrap-around between files for horizontal moves
-					if (
-						Math.abs(fileOf(to) - fileOf(to - d)) > 1 &&
-						(d === -1 || d === 1)
-					)
-						break;
-					addIfValid(to);
-					if ((allOcc & sqToBB(to)) !== 0n) break; // blocked
-					to += d;
-				}
+			// use magic bitboards for sliding pieces
+			if (pieceType === Piece.Bishop) {
+				movesMask = getBishopAttacks(squareIdx, allOcc) & ~ownPieces;
+			} else if (pieceType === Piece.Rook) {
+				movesMask = getRookAttacks(squareIdx, allOcc) & ~ownPieces;
+			} else {
+				movesMask = getQueenAttacks(squareIdx, allOcc) & ~ownPieces;
 			}
 		}
 
