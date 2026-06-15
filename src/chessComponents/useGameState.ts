@@ -1,48 +1,66 @@
-// useGameState.ts
 import { useState, useCallback } from "react";
-import { ChessBoard } from "../chessComponents/chessBoard.ts";
-import { Color, type ChessMove, type Piece } from "./types.ts";
+import { ChessBoard } from "./chessBoard.ts";
+import { type ChessMove, Color } from "./types.ts";
 
 export function useGameState() {
+	// Single instance of engine logic inside standard state
 	const [board, setBoard] = useState(() => new ChessBoard());
 	const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
 	const [legalMoves, setLegalMoves] = useState<number[]>([]);
-	const [turn, setTurn] = useState<"white" | "black">("white");
-	const [moveHistory, setMoveHistory] = useState<string[]>(["e4 e5"]);
 
 	const selectSquare = useCallback(
 		(sq: number) => {
-			const moves = board.getLegalMoves(sq); // you'll implement this
-			setSelectedSquare(sq);
-			setLegalMoves(moves);
+			const piece = board.getPieceAtSquare(sq);
+
+			// Only select squares containing pieces belonging to the active player
+			if (piece && piece.color === board.sideToMove) {
+				setSelectedSquare(sq);
+				setLegalMoves(board.getLegalMoves(sq));
+			} else {
+				setSelectedSquare(null);
+				setLegalMoves([]);
+			}
 		},
 		[board],
 	);
 
-	const makeMove = useCallback(
-		(move: ChessMove, pieceType: Piece) => {
-			const newBoard = board.clone(); // you'll add this
-			newBoard.movePiece(
-				move,
-				pieceType,
-				turn === "white" ? Color.White : Color.Black,
+	const executeMove = useCallback(
+		(from: number, to: number) => {
+			const pieceInfo = board.getPieceAtSquare(from);
+			if (!pieceInfo) return;
+
+			// 1. Structural deep copy generation
+			const nextBoard = board.clone();
+
+			// 2. Compute state shift modifications
+			const movePayload: ChessMove = { from, to };
+			nextBoard.movePiece(
+				movePayload,
+				pieceInfo.pieceType,
+				pieceInfo.color,
 			);
-			setMoveHistory(["ed e5", "nf3 nc6"]);
-			setBoard(newBoard);
-			setTurn((t) => (t === "white" ? "black" : "white"));
+
+			// 3. Push complete object swap into hook memory container
+			setBoard(nextBoard);
 			setSelectedSquare(null);
 			setLegalMoves([]);
 		},
-		[board, turn],
+		[board],
 	);
+
+	const loadCustomPosition = useCallback((customPieces: bigint[]) => {
+		setBoard(new ChessBoard(customPieces));
+		setSelectedSquare(null);
+		setLegalMoves([]);
+	}, []);
 
 	return {
 		board,
 		selectedSquare,
 		legalMoves,
-		turn,
-		moveHistory,
+		turn: board.sideToMove === Color.White ? "white" : "black",
 		selectSquare,
-		makeMove,
+		executeMove,
+		loadCustomPosition,
 	};
 }

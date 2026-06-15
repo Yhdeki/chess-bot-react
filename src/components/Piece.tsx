@@ -1,37 +1,9 @@
-// import "./components.css";
-
-// interface Props {
-// 	pieceName: string;
-// }
-
-// function Piece({ pieceName }: Props) {
-// 	const getPieceImgPath = (pieceName: string): string => {
-// 		const PREFIX: string = "src/assets/Chess_";
-// 		const SUFFIX: string = "t45.svg";
-// 		const colorLetter = pieceName[0].toLowerCase() === "w" ? "l" : "d";
-// 		const pieceType: string = pieceName.split(" ")[1].toLowerCase();
-// 		if (pieceType === "knight") {
-// 			return PREFIX + "n" + colorLetter + SUFFIX;
-// 		}
-
-// 		return PREFIX + pieceType[0] + colorLetter + SUFFIX;
-// 	};
-// 	return (
-// 		<div className="piece-container">
-// 			<img src={getPieceImgPath(pieceName)} className="piece-img" />
-// 		</div>
-// 	);
-// }
-
-// export default Piece;
 import React, { useState } from "react";
-
-// Define strict types for chess pieces and colors
-type PieceColor = "w" | "b";
+import type { Color } from "../chessComponents/types";
 
 interface ChessPieceProps {
 	type: string;
-	color: PieceColor;
+	color: Color;
 }
 
 export const InteractivePiece: React.FC<ChessPieceProps> = ({
@@ -70,7 +42,11 @@ export const InteractivePiece: React.FC<ChessPieceProps> = ({
 				transition: "opacity 0.1s ease",
 			}}
 		>
-			<img src={getPieceImgPath(type)} className="piece-img" />
+			<img
+				src={getPieceImgPath(type)}
+				alt={getPieceImgPath(type)}
+				className="piece-img"
+			/>
 		</div>
 	);
 };

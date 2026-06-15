@@ -1,9 +1,10 @@
+import { Color, TimeManagementSec } from "../chessComponents/types.ts";
 import { useGameState } from "../chessComponents/useGameState.ts";
 import ChessPlayer from "./ChessPlayer.tsx";
 import "./components.css";
 import EvalBar from "./EvalBar.tsx";
 import MoveHistory from "./MoveHistory.tsx";
-import { InteractivePiece } from "./Piece.tsx";
+import Square from "./Square.tsx";
 
 function ChessBoard() {
 	const squares = [];
@@ -13,29 +14,30 @@ function ChessBoard() {
 	for (let row = 0; row < 8; row++) {
 		for (let col = 0; col < 8; col++) {
 			// Alternating checkerboard logic: sum of row + col
-			const isDark = (row + col) % 2 !== 0;
-			const squareColor = isDark ? "dark" : "light";
 			const pieceName: string | null = board.getPieceAtSquare(
 				row * 8 + col,
 			);
 			squares.push(
-				<div key={`${row}-${col}`} className={`square ${squareColor}`}>
-					{pieceName && (
-						<InteractivePiece
-							type={pieceName}
-							color={pieceName[0] === "w" ? "w" : "b"}
-						/>
-					)}
-				</div>,
+				<Square
+					key={`${row}-${col}`}
+					color={(row + col) % 2 !== 0 ? Color.Black : Color.White}
+					piece={pieceName}
+				/>,
 			);
 		}
 	}
 
 	return (
 		<div className="chess-board-container">
+			<ChessPlayer
+				time={TimeManagementSec.FiveMin}
+				id="white-player"
+			></ChessPlayer>
 			<div className="chess-board">{squares}</div>
-            <ChessPlayer></ChessPlayer>
-            <ChessPlayer></ChessPlayer>
+			<ChessPlayer
+				time={TimeManagementSec.FiveMin}
+				id="black-player"
+			></ChessPlayer>
 			<EvalBar value={0} id="white-bar" />
 			<EvalBar value={0} id="black-bar" />
 			<MoveHistory moves={moveHistory} />

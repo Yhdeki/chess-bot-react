@@ -13,6 +13,8 @@ export const Color = {
 } as const;
 
 export const TimeManagementSec = {
+	timeout: 0,
+	forever: Infinity,
 	Minute: 60,
 	ThreeMin: 180,
 	FiveMin: 300,
@@ -30,6 +32,7 @@ export const CASTLE_RIGHTS = {
 export interface ChessMove {
 	from: number;
 	to: number;
+	promotion?: Piece;
 }
 export type Piece = (typeof Piece)[keyof typeof Piece];
 export type Color = (typeof Color)[keyof typeof Color];

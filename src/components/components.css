@@ -1,10 +1,9 @@
 /* ----- CHESS BOARD ----- */
 /* Centers the entire board on the screen */
 .chess-board-container {
-	display: flex;
 	justify-content: center;
 	align-items: center;
-	height: 100vmin;
+	height: 100%;
 	background-color: #242424;
 }
 
@@ -13,8 +12,8 @@
 	display: grid;
 	grid-template-columns: repeat(8, 1fr);
 	grid-template-rows: repeat(8, 1fr);
-	width: 90vmin; /* Scalable size based on the smallest viewport dimension */
-	height: 90vmin;
+	width: 80vmin; /* Scalable size based on the smallest viewport dimension */
+	height: 80vmin;
 	border: 4px solid #333;
 	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
@@ -72,12 +71,12 @@
 .move-history-container {
 	/* Positions the div at the top right of the screen */
 	position: fixed;
-	top: 0;
-	right: 0;
+	top: 5%;
+	left: 60%;
 
 	/* Shapes the div into a rectangle */
 	width: 250px;
-	height: 120px;
+	height: fit-content;
 
 	/* Aligns the inner text to the top-left of this rectangle */
 	text-align: left;
@@ -86,6 +85,32 @@
 
 	/* Optional styling to make the rectangle visible */
 	background-color: #33333394;
-	color: #fff;
+	color: #ffd5abec;
 	box-sizing: border-box; /* Ensures padding doesn't break the width/height */
+}
+/* ----- PLAYERS -----*/
+.player-container {
+	position: relative;
+	align-content: center;
+	text-align: center;
+	border: 3px orange solid;
+	width: fit-content;
+	left: 50%;
+}
+
+#white-player {
+	top: 10px;
+}
+#black-player {
+	bottom: 10px;
+}
+/* ----- TAKEN PIECES -----*/
+.taken-pieces-container {
+	position: absolute;
+
+	/* Shifts the child back by half of its own width/height for perfect centering */
+	transform: translate(-50%, -50%);
+}
+/* ----- CLOCKS AND TIME -----*/
+.clock-container {
 }

@@ -1,98 +1,139 @@
 type Bitboard = bigint;
 
-// Configuration tables for both types of sliding movement
-const rookMasks: Bitboard[] = new Array(64).fill(0n);
-const bishopMasks: Bitboard[] = new Array(64).fill(0n);
+// Static lookup tables initialized ONCE on application boot
+const knightAttacks: Bitboard[] = new Array(64).fill(0n);
+const kingAttacks: Bitboard[] = new Array(64).fill(0n);
+const rayAttacks: Bitboard[][] = Array.from({ length: 64 }, () =>
+	new Array(8).fill(0n),
+);
 
-const rookShifts: number[] = new Array(64).fill(0);
-const bishopShifts: number[] = new Array(64).fill(0);
+// Direction deltas for sliding piece raycasting
+const DIRECTIONS = [8, -8, 1, -1, 9, -9, 7, -7];
 
-const rookMagics: Bitboard[] = new Array(64).fill(0n);
-const bishopMagics: Bitboard[] = new Array(64).fill(0n);
+function initPrecomputedTables() {
+	for (let sq = 0; sq < 64; sq++) {
+		const file = sq % 8;
+		const rank = Math.floor(sq / 8);
+		const bb = 1n << BigInt(sq);
 
-// The precomputed database lookup tables
-const rookAttacks: Bitboard[][] = Array.from({ length: 64 }, () => []);
-const bishopAttacks: Bitboard[][] = Array.from({ length: 64 }, () => []);
+		// 1. Precompute Knights
+		const knightOffsets = [17, 15, 10, 6, -6, -10, -15, -17];
+		const knightMasks = [
+			0x7f7f7f7f7f7f7f7fn,
+			0xfefefefefefefefen,
+			0x3f3f3f3f3f3f3f3fn,
+			0xfcfcfcfcfcfcfcfcn,
+			0x3f3f3f3f3f3f3f3fn,
+			0xfcfcfcfcfcfcfcfcn,
+			0x7f7f7f7f7f7f7f7fn,
+			0xfefefefefefefefen,
+		];
+		for (let i = 0; i < 8; i++) {
+			const shift = BigInt(knightOffsets[i]);
+			const target =
+				shift > 0n
+					? bb << shift
+					: bb >> BigInt(Math.abs(Number(shift)));
+			if (target > 0n && target <= 0xffffffffffffffffn) {
+				knightAttacks[sq] |= target & knightMasks[i];
+			}
+		}
 
-/**
- * Calculates legal rook attacks using magic bitboards
- */
+		// 2. Precompute Kings
+		const kingOffsets = [9, 8, 7, 1, -1, -7, -8, -9];
+		for (const offset of kingOffsets) {
+			const targetSq = sq + offset;
+			if (
+				targetSq >= 0 &&
+				targetSq < 64 &&
+				Math.abs((targetSq % 8) - file) <= 1
+			) {
+				kingAttacks[sq] |= 1n << BigInt(targetSq);
+			}
+		}
+
+		// 3. Precompute Sliding Rays (Fallback for complex Magic Tables initialization)
+		for (let d = 0; d < 8; d++) {
+			let currentSq = sq;
+			const delta = DIRECTIONS[d];
+			while (true) {
+				const nextSq = currentSq + delta;
+				if (nextSq < 0 || nextSq > 63) break;
+				if (
+					d === 2 ||
+					d === 3 ||
+					d === 4 ||
+					d === 5 ||
+					d === 6 ||
+					d === 7
+				) {
+					if (Math.abs((nextSq % 8) - (currentSq % 8)) > 1) break;
+				}
+				rayAttacks[sq][d] |= 1n << BigInt(nextSq);
+				currentSq = nextSq;
+			}
+		}
+	}
+}
+
+// Run computation automatically on file import
+initPrecomputedTables();
+
+export function getKnightAttacks(square: number): Bitboard {
+	return knightAttacks[square];
+}
+
+export function getKingAttacks(square: number): Bitboard {
+	return kingAttacks[square];
+}
+
 export function getRookAttacks(square: number, occupancy: Bitboard): Bitboard {
-	return getSlidingPieceAttacks(
-		square,
-		occupancy,
-		rookMasks,
-		rookMagics,
-		rookShifts,
-		rookAttacks,
-	);
+	let attacks = 0n;
+	for (let d = 0; d < 4; d++) {
+		// First 4 directions are orthogonal
+		attacks |= getRayAttacksInDirection(square, d, occupancy);
+	}
+	return attacks;
 }
 
-export function getSlidingPieceAttacks(
-	square: number,
-	occupancy: Bitboard,
-	pieceMasks: bigint[],
-	pieceMagics: bigint[],
-	pieceShift: number[],
-	pieceAttacks: Bitboard[][],
-): Bitboard {
-	const blockers = occupancy & pieceMasks[square];
-	const magic = pieceMagics[square];
-	const shift = pieceShift[square];
-
-	// Perform perfect hashing formula
-	const index = Number((blockers * magic) >> BigInt(shift));
-	return pieceAttacks[square][index];
-}
-/**
- * Calculates legal bishop attacks using magic bitboards
- */
 export function getBishopAttacks(
 	square: number,
 	occupancy: Bitboard,
 ): Bitboard {
-	return getSlidingPieceAttacks(
-		square,
-		occupancy,
-		bishopMasks,
-		bishopMagics,
-		bishopShifts,
-		bishopAttacks,
-	);
+	let attacks = 0n;
+	for (let d = 4; d < 8; d++) {
+		// Last 4 directions are diagonal
+		attacks |= getRayAttacksInDirection(square, d, occupancy);
+	}
+	return attacks;
 }
 
-/**
- * Calculates queen attacks by combining rook and bishop lookups
- */
 export function getQueenAttacks(square: number, occupancy: Bitboard): Bitboard {
-	// A queen's reach is the union of straight and diagonal attacks
 	return (
 		getRookAttacks(square, occupancy) | getBishopAttacks(square, occupancy)
 	);
 }
 
-export function precomputeKnights(): bigint[] {
-	return Array.from({ length: 64 }, (_, sq) => {
-		let attacks = 0n;
-		const bb = 1n << BigInt(sq);
-
-		// Helper to safely shift and avoid file wraps
-		const addMove = (shift: bigint, mask: bigint) => {
-			const shifted =
-				shift > 0n
-					? bb << shift
-					: bb >> BigInt(Math.abs(Number(shift)));
-			attacks |= shifted & mask;
-		};
-
-		addMove(17n, 0x7f7f7f7f7f7f7f7fn); // Left 1, Up 2
-		addMove(15n, 0xfefefefefefefefen); // Right 1, Up 2
-		addMove(10n, 0x3f3f3f3f3f3f3f3fn); // Left 2, Up 1
-		addMove(6n, 0xfcfcfcfcfcfcfcfcn); // Right 2, Up 1
-		addMove(-6n, 0x3f3f3f3f3f3f3f3fn); // Left 2, Down 1
-		addMove(-10n, 0xfcfcfcfcfcfcfcfcn); // Right 2, Down 1
-		addMove(-15n, 0x7f7f7f7f7f7f7f7fn); // Left 1, Down 2
-		addMove(-17n, 0xfefefefefefefefen); // Right 1, Down 2
-		return attacks;
-	});
+function getRayAttacksInDirection(
+	square: number,
+	directionIdx: number,
+	occupancy: Bitboard,
+): Bitboard {
+	let attacks = rayAttacks[square][directionIdx];
+	const blockers = attacks & occupancy;
+	if (blockers !== 0n) {
+		// Find closest blocking square in this specific ray direction
+		const delta = DIRECTIONS[directionIdx];
+		let scanSq = square + delta;
+		let dynamicAttacks = 0n;
+		while (scanSq >= 0 && scanSq < 64) {
+			const bit = 1n << BigInt(scanSq);
+			dynamicAttacks |= bit;
+			if ((bit & occupancy) !== 0n) break; // Hit a blocking piece
+			if ((bit & attacks) === 0n) break; // Exited precomputed boundary
+			scanSq += delta;
+		}
+		return dynamicAttacks;
+	}
+	return attacks;
 }
