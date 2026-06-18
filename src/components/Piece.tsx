@@ -1,107 +1,77 @@
+// Piece.tsx
 import React, { useState } from "react";
-import type { Color } from "../chessComponents/types";
-
-interface ChessPieceProps {
-	type: string;
+import { Color, Piece } from "../chessComponents/types";
+import "./components.css";
+interface Props {
+	type: Piece;
 	color: Color;
 }
 
-export const InteractivePiece: React.FC<ChessPieceProps> = ({
-	type,
-	color,
-}) => {
-	const [isDragging, setIsDragging] = useState(false);
+const FIXED_X = 500;
+const FIXED_Y = 300;
+// Define a snapping threshold in pixels
+const SNAP_THRESHOLD = 100;
+
+export const InteractivePiece: React.FC<Props> = ({ type, color }) => {
+	const path = getPieceImgPath(type, color);
+
+	// Track the current visual position of the div
+	const [position, setPosition] = useState<{ x: number; y: number }>({
+		x: 100,
+		y: 100,
+	});
+	// Track where the mouse started clicking inside the div
+	const [dragStartOffset, setDragStartOffset] = useState<{
+		x: number;
+		y: number;
+	}>({ x: 0, y: 0 });
 
 	const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-		setIsDragging(true);
-		// Store piece data and source square in the drag dataTransfer object
-		e.dataTransfer.setData("text/plain", JSON.stringify({ type, color }));
-		e.dataTransfer.effectAllowed = "move";
+		const rect = e.currentTarget.getBoundingClientRect();
+		// Calculate exactly where the user clicked inside the div
+		setDragStartOffset({
+			x: e.clientX - rect.left,
+			y: e.clientY - rect.top,
+		});
+
+		// Required for Firefox support to initiate a native drag
+		e.dataTransfer.setData("text/plain", "");
 	};
 
-	const handleDragEnd = () => {
-		setIsDragging(false);
-	};
+	const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+		// Calculate the drop coordinates relative to the viewport
+		const dropX = e.clientX - dragStartOffset.x;
+		const dropY = e.clientY - dragStartOffset.y;
 
+		// Calculate distance from the fixed target position
+		const distanceX = Math.abs(dropX - FIXED_X);
+		const distanceY = Math.abs(dropY - FIXED_Y);
+
+		// Snap to the fixed place if dropped close enough, otherwise stay where dropped
+		if (distanceX < SNAP_THRESHOLD && distanceY < SNAP_THRESHOLD) {
+			setPosition({ x: FIXED_X, y: FIXED_Y });
+		} else {
+			setPosition({ x: dropX, y: dropY });
+		}
+	};
 	return (
 		<div
 			className="piece-container"
 			draggable
 			onDragStart={handleDragStart}
-			onDragEnd={handleDragEnd}
-			style={{
-				fontSize: "3rem",
-				cursor: "grab",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				width: "100%",
-				height: "100%",
-				userSelect: "none",
-				opacity: isDragging ? 0.4 : 1,
-				transition: "opacity 0.1s ease",
-			}}
+            onDragEnd={handleDragEnd}
 		>
 			<img
-				src={getPieceImgPath(type)}
-				alt={getPieceImgPath(type)}
+				src={"/chess-bot-react/src/assets/" + path}
+				alt="chess piece"
 				className="piece-img"
 			/>
 		</div>
 	);
 };
 
-export const getPieceImgPath = (pieceName: string): string => {
-	const PREFIX: string = "src/assets/Chess_";
-	const SUFFIX: string = "t45.svg";
-	const colorLetter = pieceName[0].toLowerCase() === "w" ? "l" : "d";
-	const pieceType: string = pieceName.split(" ")[1].toLowerCase();
-	if (pieceType === "knight") {
-		return PREFIX + "n" + colorLetter + SUFFIX;
-	}
-
-	return PREFIX + pieceType[0] + colorLetter + SUFFIX;
-};
-// Quick Parent Container (Board Square) Demonstration
-export const BoardSquare: React.FC<{
-	id: string;
-	children?: React.ReactNode;
-}> = ({ id, children }) => {
-	const [isOver, setIsOver] = useState(false);
-
-	const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-		e.preventDefault(); // Required to allow dropping
-	};
-
-	const handleDragEnter = () => setIsOver(true);
-	const handleDragLeave = () => setIsOver(false);
-
-	const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-		e.preventDefault();
-		setIsOver(false);
-		const dataStr = e.dataTransfer.getData("text/plain");
-		if (dataStr) {
-			const { type, color, from } = JSON.parse(dataStr);
-			console.log(`Moved ${color}${type} from ${from} to ${id}`);
-			// Integrate your state management or logic engine (e.g., chess.js) here
-		}
-	};
-
-	return (
-		<div
-			onDragOver={handleDragOver}
-			onDragEnter={handleDragEnter}
-			onDragLeave={handleDragLeave}
-			onDrop={handleDrop}
-			style={{
-				width: "80px",
-				height: "80px",
-				backgroundColor: isOver ? "#baca44" : "#eeeed2", // Highlights target on hover
-				border: "1px solid #769656",
-				display: "inline-block",
-			}}
-		>
-			{children}
-		</div>
-	);
+export const getPieceImgPath = (type: Piece, color: Color) => {
+	const typeChars = ["p", "n", "b", "r", "q", "k"];
+	const colorChar = color === Color.White ? "l" : "d";
+	return `Chess_${typeChars[type]}${colorChar}t45.svg`;
 };

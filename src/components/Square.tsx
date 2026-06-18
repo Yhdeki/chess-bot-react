@@ -1,18 +1,18 @@
-import type { Color } from "../chessComponents/types";
-import "./components.css";
-import { InteractivePiece } from "./Piece";
+// Square.tsx
+import { Color, Piece } from "../chessComponents/types.ts";
+import { InteractivePiece } from "./Piece.tsx";
 
 interface Props {
-	piece: string | null;
+	piece: { pieceType: Piece; color: Color } | null;
 	color: Color;
-	key: string;
 }
 
-function Square({ piece, color, key }: Props) {
+export default function Square({ piece, color }: Props) {
 	return (
-		<div key={key} className={`square ${color ? "light" : "dark"}`}>
-			{piece && <InteractivePiece type={piece} color={color} />}
+		<div className={`square ${color === Color.White ? "light" : "dark"}`}>
+			{piece && (
+				<InteractivePiece type={piece.pieceType} color={piece.color} />
+			)}
 		</div>
 	);
 }
-export default Square;

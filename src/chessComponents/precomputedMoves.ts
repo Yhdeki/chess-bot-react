@@ -13,7 +13,6 @@ const DIRECTIONS = [8, -8, 1, -1, 9, -9, 7, -7];
 function initPrecomputedTables() {
 	for (let sq = 0; sq < 64; sq++) {
 		const file = sq % 8;
-		const rank = Math.floor(sq / 8);
 		const bb = 1n << BigInt(sq);
 
 		// 1. Precompute Knights

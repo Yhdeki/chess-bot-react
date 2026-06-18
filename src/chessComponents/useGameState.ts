@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { ChessBoard } from "./chessBoard.ts";
-import { type ChessMove, Color } from "./types.ts";
+import { type ChessMove, Color, Piece } from "./types.ts";
 
 export function useGameState() {
 	// Single instance of engine logic inside standard state
@@ -24,26 +24,18 @@ export function useGameState() {
 		[board],
 	);
 
-	const executeMove = useCallback(
-		(from: number, to: number) => {
-			const pieceInfo = board.getPieceAtSquare(from);
-			if (!pieceInfo) return;
+	const makeMove = useCallback(
+		(move: ChessMove, pieceType: Piece) => {
+			// 1. Create a deep clone of the board first
+			const nextBoard = new ChessBoard([...board.pieces]);
+			nextBoard.sideToMove =
+				board.sideToMove === Color.White ? Color.Black : Color.White;
 
-			// 1. Structural deep copy generation
-			const nextBoard = board.clone();
+			// 2. Apply the move
+			nextBoard.movePiece(move, pieceType, board.sideToMove);
 
-			// 2. Compute state shift modifications
-			const movePayload: ChessMove = { from, to };
-			nextBoard.movePiece(
-				movePayload,
-				pieceInfo.pieceType,
-				pieceInfo.color,
-			);
-
-			// 3. Push complete object swap into hook memory container
+			// 3. Update state
 			setBoard(nextBoard);
-			setSelectedSquare(null);
-			setLegalMoves([]);
 		},
 		[board],
 	);
@@ -60,7 +52,7 @@ export function useGameState() {
 		legalMoves,
 		turn: board.sideToMove === Color.White ? "white" : "black",
 		selectSquare,
-		executeMove,
+		makeMove,
 		loadCustomPosition,
 	};
 }

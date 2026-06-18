@@ -1,4 +1,4 @@
-import { TimeManagementSec } from "../chessComponents/types";
+import { Color, Piece, TimeManagementSec } from "../chessComponents/types";
 import Clock from "./Clock";
 import TakenPieces from "./TakenPieces";
 
@@ -10,7 +10,14 @@ function ChessPlayer({ time, id }: Props) {
 	return (
 		<div className="player-container" id={id}>
 			<Clock timeSec={time}></Clock>
-			<TakenPieces pieces={["white king"]}></TakenPieces>
+			<TakenPieces
+				pieces={
+					new Map<{ type: Piece; color: Color }, number>([
+						[{ type: Piece.King, color: Color.White }, 95],
+						[{ type: Piece.Queen, color: Color.Black }, 88],
+					])
+				}
+			></TakenPieces>
 		</div>
 	);
 }

@@ -24,9 +24,9 @@ export const TimeManagementSec = {
 
 export const CASTLE_RIGHTS = {
 	WK: 0b0001, // White Kingside (1)
-	WQ: 0b0010, // White Queenside (2)
+	WQ: 0b0010, // White Queen-side (2)
 	BK: 0b0100, // Black Kingside (4)
-	BQ: 0b1000, // Black Queenside (8)
+	BQ: 0b1000, // Black Queen-side (8)
 	NONE: 0b0000, // Neither player can castle
 };
 export interface ChessMove {
@@ -53,5 +53,23 @@ export function getPieceTypeByScore(score: number): Piece {
 			return Piece.Queen;
 		default:
 			return Piece.King;
+	}
+}
+export function getPieceNameByType(type: Piece): string | null {
+	switch (type) {
+		case Piece.Pawn:
+			return "pawn";
+		case Piece.Knight:
+			return "knight";
+		case Piece.Bishop:
+			return "bishop";
+		case Piece.Rook:
+			return "rook";
+		case Piece.Queen:
+			return "queen";
+		case Piece.King:
+			return "king";
+		default:
+			return null;
 	}
 }

@@ -5,7 +5,13 @@ import {
 	getBishopAttacks,
 	getQueenAttacks,
 } from "./precomputedMoves.ts";
-import { Piece, Color, CASTLE_RIGHTS, type ChessMove } from "./types.ts";
+import {
+	Piece,
+	Color,
+	CASTLE_RIGHTS,
+	type ChessMove,
+	getPieceNameByType,
+} from "./types.ts";
 
 const sqToBB = (sq: number): bigint => 1n << BigInt(sq);
 
@@ -46,12 +52,25 @@ export class ChessBoard {
 	}
 
 	public updateOccupancy() {
-		this.colors[Color.White] = 0n;
-		this.colors[Color.Black] = 0n;
-		for (let i = 0; i < 64; i++) {
-			if (i < 6) this.colors[Color.White] |= this.pieces[i];
-			else this.colors[Color.Black] |= this.pieces[i];
-		}
+		// Accumulate white pieces (indices 0 to 5)
+		this.colors[Color.White] =
+			this.pieces[0] |
+			this.pieces[1] |
+			this.pieces[2] |
+			this.pieces[3] |
+			this.pieces[4] |
+			this.pieces[5];
+
+		// Accumulate black pieces (indices 6 to 11)
+		this.colors[Color.Black] =
+			this.pieces[6] |
+			this.pieces[7] |
+			this.pieces[8] |
+			this.pieces[9] |
+			this.pieces[10] |
+			this.pieces[11];
+
+		// Combined board occupancy map
 		this.combinedOccupancy =
 			this.colors[Color.White] | this.colors[Color.Black];
 	}
@@ -68,6 +87,15 @@ export class ChessBoard {
 			}
 		}
 		return null;
+	}
+	public getPieceNameAtSquare(square: number): string | null {
+		const pieceInfo = this.getPieceAtSquare(square);
+		if (pieceInfo === null) {
+			return null;
+		}
+		return pieceInfo.color === Color.White
+			? "white "
+			: "black " + getPieceNameByType(pieceInfo.pieceType);
 	}
 
 	public isSquareAttacked(square: number, byColor: Color): boolean {
@@ -362,6 +390,9 @@ export class ChessBoard {
 		this.updateOccupancy();
 	}
 
+	didGameEnd(): number | null {
+		return null;
+	}
 	public clone(): ChessBoard {
 		const copy = new ChessBoard(this.pieces);
 		copy.sideToMove = this.sideToMove;
