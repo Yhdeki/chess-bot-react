@@ -101,7 +101,7 @@ export class ChessBoard {
 	public isSquareAttacked(square: number, byColor: Color): boolean {
 		const occ = this.combinedOccupancy;
 
-		// 1. Check Slider Attacks from the objective square out
+		// Check Slider Attacks from the objective square out
 		if (
 			(getBishopAttacks(square, occ) &
 				(this.pieces[byColor * 6 + Piece.Bishop] |
@@ -128,20 +128,20 @@ export class ChessBoard {
 		)
 			return true;
 
-		// 2. Pawns
+		// Pawns
 		const pawns = this.pieces[byColor * 6 + Piece.Pawn];
 		const sqMask = sqToBB(square);
 		if (byColor === Color.White) {
-			// White pawns attacking black king from down-left / down-right
-			if (((sqMask >> 7n) & pawns & 0x7f7f7f7f7f7f7f7fn) !== 0n)
+			// White pawns attacking black from down-left / down-right
+			if (((sqMask >> 7n) & pawns & 0xfefefefefefefefen) !== 0n)
 				return true;
-			if (((sqMask >> 9n) & pawns & 0xfefefefefefefefen) !== 0n)
+			if (((sqMask >> 9n) & pawns & 0x7f7f7f7f7f7f7f7fn) !== 0n)
 				return true;
 		} else {
-			// Black pawns attacking white king from up-left / up-right
-			if (((sqMask << 7n) & pawns & 0xfefefefefefefefen) !== 0n)
+			// Black pawns attacking white from up-left / up-right
+			if (((sqMask << 7n) & pawns & 0x7f7f7f7f7f7f7f7fn) !== 0n)
 				return true;
-			if (((sqMask << 9n) & pawns & 0x7f7f7f7f7f7f7f7fn) !== 0n)
+			if (((sqMask << 9n) & pawns & 0xfefefefefefefefen) !== 0n)
 				return true;
 		}
 
@@ -390,9 +390,31 @@ export class ChessBoard {
 		this.updateOccupancy();
 	}
 
-	didGameEnd(): number | null {
-		return null;
+	public didGameEnd(): number | null {
+		// Check if the current player has any legal moves available
+		let hasLegalMoves = false;
+		for (let sq = 0; sq < 64; sq++) {
+			const p = this.getPieceAtSquare(sq);
+			if (p && p.color === this.sideToMove) {
+				if (this.getLegalMoves(sq).length > 0) {
+					hasLegalMoves = true;
+					break;
+				}
+			}
+		}
+
+		if (!hasLegalMoves) {
+			// If no legal moves and king is attacked, it's checkmate
+			if (this.isChecked(this.sideToMove)) {
+				return 1;
+			}
+			// No legal moves and king is safe means stalemate
+			return 0;
+		}
+
+		return null; // Game continues
 	}
+
 	public clone(): ChessBoard {
 		const copy = new ChessBoard(this.pieces);
 		copy.sideToMove = this.sideToMove;

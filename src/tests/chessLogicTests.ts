@@ -2,21 +2,22 @@ import * as readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { ChessBoard } from "../chessComponents/chessBoard.ts";
 import { Piece, Color } from "../chessComponents/types.ts";
+import { ChessEngine } from "../chessComponents/engine/engine.ts";
 
 // Visual symbols for rendering the board cleanly in the console
 const PIECE_SYMBOLS: Record<number, string> = {
-	[Color.White * 6 + Piece.Pawn]: "♙",
-	[Color.White * 6 + Piece.Knight]: "♘",
-	[Color.White * 6 + Piece.Bishop]: "♗",
-	[Color.White * 6 + Piece.Rook]: "♖",
-	[Color.White * 6 + Piece.Queen]: "♕",
-	[Color.White * 6 + Piece.King]: "♔",
-	[Color.Black * 6 + Piece.Pawn]: "♟",
-	[Color.Black * 6 + Piece.Knight]: "♞",
-	[Color.Black * 6 + Piece.Bishop]: "♝",
-	[Color.Black * 6 + Piece.Rook]: "♜",
-	[Color.Black * 6 + Piece.Queen]: "♛",
-	[Color.Black * 6 + Piece.King]: "♚",
+	[Color.Black * 6 + Piece.Pawn]: "♙",
+	[Color.Black * 6 + Piece.Knight]: "♘",
+	[Color.Black * 6 + Piece.Bishop]: "♗",
+	[Color.Black * 6 + Piece.Rook]: "♖",
+	[Color.Black * 6 + Piece.Queen]: "♕",
+	[Color.Black * 6 + Piece.King]: "♔",
+	[Color.White * 6 + Piece.Pawn]: "♟",
+	[Color.White * 6 + Piece.Knight]: "♞",
+	[Color.White * 6 + Piece.Bishop]: "♝",
+	[Color.White * 6 + Piece.Rook]: "♜",
+	[Color.White * 6 + Piece.Queen]: "♛",
+	[Color.White * 6 + Piece.King]: "♚",
 };
 
 // Converts coordinates like "e2" to square index (0-63)
@@ -64,6 +65,7 @@ function renderBoard(board: ChessBoard) {
 }
 
 async function runGameLoop() {
+	const engine = new ChessEngine(3, "deriFish");
 	const board = new ChessBoard();
 	const rl = readline.createInterface({ input, output });
 
@@ -98,6 +100,10 @@ async function runGameLoop() {
 			? " (IN CHECK!)"
 			: "";
 
+		console.log(
+			"The engine thinks the position is: " +
+				engine.alphaBetaSearch(board, 5, -Infinity, Infinity),
+		);
 		const inputMove = await rl.question(
 			`${activePlayerColor} to move${isCurrentlyChecked}: `,
 		);
