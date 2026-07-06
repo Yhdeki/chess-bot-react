@@ -1,27 +1,24 @@
 import "./components.css";
 import { getPieceImgPath } from "./Piece";
-import {
-	Color,
-	getPieceNameByType,
-	type Piece,
-} from "../chessComponents/types";
+import { Color, Piece } from "../chessComponents/types";
 
 interface Props {
-	pieces: Map<{ type: Piece; color: Color }, number>;
+	pieces: { type: Piece; color: Color }[];
 }
-
 function TakenPieces({ pieces }: Props) {
 	return (
 		<div className="taken-pieces-container">
-			{[...pieces.keys()].map((piece) => {
-				return piece ? (
-					<img
-						src={getPieceImgPath(piece.type, piece.color)}
-						alt=""
-						key={piece.type + piece.color}
-					/>
-				) : null;
-			})}
+			{pieces.map((piece, idx) => (
+				<img
+					src={
+						"/chess-bot-react/src/assets/" +
+						getPieceImgPath(piece.type, piece.color)
+					}
+					alt=""
+					className="taken-piece-img"
+					key={`${piece.type}-${piece.color}-${idx}`}
+				/>
+			))}
 		</div>
 	);
 }

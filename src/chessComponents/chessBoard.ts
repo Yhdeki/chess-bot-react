@@ -25,6 +25,8 @@ export class ChessBoard {
 	public enPassantSquare: number | null = null;
 	public halfMoveClock: number = 0;
 	public totalNumOfMoves: number = 0;
+	public moveHistory: ChessMove[] = []; // Track move history for opening book lookups
+	public capturedPieces: { type: Piece; color: Color }[] = []; // NEW: pieces taken so far, in order
 
 	constructor(customPieces?: bigint[]) {
 		if (customPieces && customPieces.length === 12) {
@@ -294,7 +296,7 @@ export class ChessBoard {
 		for (const to of pseudo) {
 			const nextSimulatedBoard = this.clone();
 			nextSimulatedBoard.movePiece(
-				{ from: square, to },
+				{ from: square, to: to },
 				pInfo.pieceType,
 				pInfo.color,
 			);
@@ -341,6 +343,7 @@ export class ChessBoard {
 			const epCaptureSq =
 				color === Color.White ? move.to - 8 : move.to + 8;
 			this.pieces[enemyColor * 6 + Piece.Pawn] &= ~sqToBB(epCaptureSq);
+			this.capturedPieces.push({ type: Piece.Pawn, color: enemyColor });
 		}
 
 		// 4. Handle Standard Captures
@@ -348,6 +351,10 @@ export class ChessBoard {
 			for (let i = enemyColor * 6; i < enemyColor * 6 + 6; i++) {
 				if ((this.pieces[i] & toMask) !== 0n) {
 					this.pieces[i] &= ~toMask;
+					this.capturedPieces.push({
+						type: (i - enemyColor * 6) as Piece,
+						color: enemyColor,
+					});
 					break;
 				}
 			}
@@ -387,6 +394,7 @@ export class ChessBoard {
 		this.enPassantSquare = nextEnPassantSquare;
 		this.sideToMove = enemyColor;
 		this.totalNumOfMoves++;
+		this.moveHistory.push({ ...move }); // Record move to persistent tracking
 		this.updateOccupancy();
 	}
 
@@ -422,6 +430,8 @@ export class ChessBoard {
 		copy.enPassantSquare = this.enPassantSquare;
 		copy.halfMoveClock = this.halfMoveClock;
 		copy.totalNumOfMoves = this.totalNumOfMoves;
+		copy.moveHistory = this.moveHistory.map((m) => ({ ...m })); // Maintain move history clone
+		copy.capturedPieces = this.capturedPieces.map((p) => ({ ...p }));
 		return copy;
 	}
 

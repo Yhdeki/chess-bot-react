@@ -102,7 +102,14 @@ async function runGameLoop() {
 
 		console.log(
 			"The engine thinks the position is: " +
-				engine.alphaBetaSearch(board, 5, -Infinity, Infinity),
+				engine.alphaBetaSearch(board, 3, -Infinity, Infinity),
+		);
+		const bestMove = engine.getBestMove(board, 5);
+		console.log(
+			"The engine thinks the best move is: " +
+				bestMove?.from +
+				"," +
+				bestMove?.to,
 		);
 		const inputMove = await rl.question(
 			`${activePlayerColor} to move${isCurrentlyChecked}: `,

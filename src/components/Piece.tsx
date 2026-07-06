@@ -1,70 +1,42 @@
 // Piece.tsx
-import React, { useState } from "react";
 import { Color, Piece } from "../chessComponents/types";
 import "./components.css";
+import React from "react";
+import type { DragEvent } from "react";
+
 interface Props {
 	type: Piece;
 	color: Color;
+	square: number;
+	draggable: boolean;
 }
 
-const FIXED_X = 500;
-const FIXED_Y = 300;
-// Define a snapping threshold in pixels
-const SNAP_THRESHOLD = 100;
-
-export const InteractivePiece: React.FC<Props> = ({ type, color }) => {
+// NOTE: Switched from the previous manual mouse-position drag implementation
+// to native HTML5 drag-and-drop. The old version tracked pixel offsets but
+// had no square-collision detection, so it couldn't actually move a piece
+// from square to square. Native DnD lets the browser handle the drag ghost
+// and Square.tsx just needs onDrop — much less code and more robust.
+export const InteractivePiece: React.FC<Props> = ({
+	type,
+	color,
+	square,
+	draggable,
+}: Props) => {
 	const path = getPieceImgPath(type, color);
 
-	// Track the current visual position of the div
-	const [position, setPosition] = useState<{ x: number; y: number }>({
-		x: 100,
-		y: 100,
-	});
-	// Track where the mouse started clicking inside the div
-	const [dragStartOffset, setDragStartOffset] = useState<{
-		x: number;
-		y: number;
-	}>({ x: 0, y: 0 });
-
-	const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-		const rect = e.currentTarget.getBoundingClientRect();
-		// Calculate exactly where the user clicked inside the div
-		setDragStartOffset({
-			x: e.clientX - rect.left,
-			y: e.clientY - rect.top,
-		});
-
-		// Required for Firefox support to initiate a native drag
-		e.dataTransfer.setData("text/plain", "");
+	const handleDragStart = (e: DragEvent<HTMLImageElement>) => {
+		e.dataTransfer.setData("text/plain", String(square));
+		e.dataTransfer.effectAllowed = "move";
 	};
 
-	const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
-		// Calculate the drop coordinates relative to the viewport
-		const dropX = e.clientX - dragStartOffset.x;
-		const dropY = e.clientY - dragStartOffset.y;
-
-		// Calculate distance from the fixed target position
-		const distanceX = Math.abs(dropX - FIXED_X);
-		const distanceY = Math.abs(dropY - FIXED_Y);
-
-		// Snap to the fixed place if dropped close enough, otherwise stay where dropped
-		if (distanceX < SNAP_THRESHOLD && distanceY < SNAP_THRESHOLD) {
-			setPosition({ x: FIXED_X, y: FIXED_Y });
-		} else {
-			setPosition({ x: dropX, y: dropY });
-		}
-	};
 	return (
-		<div
-			className="piece-container"
-			draggable
-			onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-		>
+		<div className="piece-container">
 			<img
 				src={"/chess-bot-react/src/assets/" + path}
-				alt="chess piece"
-				className="piece-img"
+				alt="chess-piece"
+				className={`piece-img ${draggable ? "draggable-piece" : ""}`}
+				draggable={draggable}
+				onDragStart={handleDragStart}
 			/>
 		</div>
 	);

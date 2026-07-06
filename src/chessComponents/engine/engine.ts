@@ -1,6 +1,5 @@
 import { ChessBoard } from "../chessBoard.ts";
 import { Piece, Color, type ChessMove } from "../types.ts";
-import * as readline from "readline";
 import { moveToUci, uciToMove } from "./parsePgn.ts";
 
 import Database from "better-sqlite3";
@@ -213,6 +212,9 @@ export class ChessEngine {
 			egBlack = 0;
 		let gamePhaseCount = 0;
 
+		let whiteBishopCount = 0;
+		let blackBishopCount = 0;
+
 		const baseValues = {
 			[Piece.Pawn]: 100,
 			[Piece.Knight]: 320,
@@ -246,6 +248,13 @@ export class ChessEngine {
 			let mgScore = baseValues[type];
 			let egScore = baseValues[type];
 
+			// --- Positional Extension: Mobility Scoring ---
+			if (type !== Piece.Pawn && type !== Piece.King) {
+				const mobilityCount = board.getPseudoLegalMoves(sq).length;
+				mgScore += mobilityCount * 2;
+				egScore += mobilityCount * 2;
+			}
+
 			switch (type) {
 				case Piece.Pawn:
 					mgScore += pawnMG[pIdx];
@@ -264,10 +273,47 @@ export class ChessEngine {
 				case Piece.Bishop:
 					mgScore += bishopPST[pIdx];
 					egScore += bishopPST[pIdx];
+					if (color === Color.White) whiteBishopCount++;
+					else blackBishopCount++;
 					break;
 				case Piece.Rook:
 					mgScore += rookMG[pIdx];
 					egScore += rookEG[pIdx];
+
+					// --- Positional Extension: Rooks on Open / Semi-open files ---
+					const file = sq % 8;
+					let ownPawnOnFile = false;
+					let enemyPawnOnFile = false;
+					const ownPawnIdx = color * 6 + Piece.Pawn;
+					const enemyPawnIdx =
+						(color === Color.White ? Color.Black : Color.White) *
+							6 +
+						Piece.Pawn;
+
+					for (let r = 0; r < 8; r++) {
+						const fileSq = r * 8 + file;
+						if (
+							(board.pieces[ownPawnIdx] &
+								(1n << BigInt(fileSq))) !==
+							0n
+						)
+							ownPawnOnFile = true;
+						if (
+							(board.pieces[enemyPawnIdx] &
+								(1n << BigInt(fileSq))) !==
+							0n
+						)
+							enemyPawnOnFile = true;
+					}
+					if (!ownPawnOnFile) {
+						if (!enemyPawnOnFile) {
+							mgScore += 20; // Full Open File
+							egScore += 20;
+						} else {
+							mgScore += 10; // Semi-Open File
+							egScore += 10;
+						}
+					}
 					break;
 				case Piece.Queen:
 					mgScore += queenPST[pIdx];
@@ -287,6 +333,16 @@ export class ChessEngine {
 				mgBlack += mgScore;
 				egBlack += egScore;
 			}
+		}
+
+		// --- Positional Extension: Bishop Pair Reward ---
+		if (whiteBishopCount >= 2) {
+			mgWhite += 30;
+			egWhite += 30;
+		}
+		if (blackBishopCount >= 2) {
+			mgBlack += 30;
+			egBlack += 30;
 		}
 
 		// Aggregate relative differentials
@@ -331,6 +387,13 @@ export class ChessEngine {
 	}
 
 	getBestMove(board: ChessBoard, maxDepth: number): ChessMove | null {
+		// Check opening book database first via the persistent history
+		const bookMove = getMassiveBookMove(board.moveHistory);
+		if (bookMove) {
+			return bookMove;
+		}
+
+		// Fall back to search optimization if book line is absent
 		const moves = this.getAllLegalMoves(board);
 		if (moves.length === 0) return null;
 
@@ -338,11 +401,19 @@ export class ChessEngine {
 		let alpha = -Infinity;
 		const beta = Infinity;
 		const sortedMoves = this.orderMoves(moves, board);
+		let legalMovesCount = 0;
 
 		for (const move of sortedMoves) {
 			const nextBoard = board.clone();
 			const piece = board.getPieceAtSquare(move.from)!;
 			nextBoard.movePiece(move, piece.pieceType, piece.color);
+
+			// Post-move validation: skip illegal lines that compromise the King
+			if (nextBoard.isChecked(board.sideToMove)) {
+				continue;
+			}
+			legalMovesCount++;
+
 			const score = -this.alphaBetaSearch(
 				nextBoard,
 				maxDepth - 1,
@@ -355,7 +426,8 @@ export class ChessEngine {
 				bestMove = move;
 			}
 		}
-		return bestMove;
+
+		return legalMovesCount === 0 ? null : bestMove;
 	}
 
 	alphaBetaSearch(
@@ -364,18 +436,23 @@ export class ChessEngine {
 		alpha: number,
 		beta: number,
 	): number {
-		const gameStatus = board.didGameEnd();
-		if (gameStatus === 1) return -Infinity + depth;
-		if (gameStatus === 0) return 0;
 		if (depth === 0) return this.evaluation(board);
 
 		const moves = this.getAllLegalMoves(board);
 		const sortedMoves = this.orderMoves(moves, board);
+		let legalMovesCount = 0;
 
 		for (const move of sortedMoves) {
 			const nextBoard = board.clone();
 			const piece = board.getPieceAtSquare(move.from)!;
 			nextBoard.movePiece(move, piece.pieceType, piece.color);
+
+			// Post-move validation: Filter out illegal variations dynamically
+			if (nextBoard.isChecked(board.sideToMove)) {
+				continue;
+			}
+			legalMovesCount++;
+
 			const score = -this.alphaBetaSearch(
 				nextBoard,
 				depth - 1,
@@ -386,6 +463,15 @@ export class ChessEngine {
 			if (score >= beta) return beta;
 			if (score > alpha) alpha = score;
 		}
+
+		// Terminal assessment (Checkmate vs Stalemate) executed seamlessly at zero-cost
+		if (legalMovesCount === 0) {
+			if (board.isChecked(board.sideToMove)) {
+				return -Infinity + depth; // Checkmate
+			}
+			return 0; // Stalemate
+		}
+
 		return alpha;
 	}
 
@@ -399,51 +485,3 @@ export class ChessEngine {
 		});
 	}
 }
-
-const rl = readline.createInterface({
-	input: process.stdin,
-	output: process.stdout,
-});
-const engine = new ChessEngine(5, "AlphaTypeScript");
-
-rl.on("line", async (line) => {
-	try {
-		const trimmed = line.trim();
-
-		// Parse the new custom text format: "52,36 11,27" -> ChessMove[]
-		const moveHistory: ChessMove[] =
-			trimmed === ""
-				? []
-				: trimmed.split(" ").map((moveStr) => {
-						const [from, to] = moveStr.split(",").map(Number);
-						return { from, to };
-					});
-
-		// Fast database lookup for the massive book
-		const bookMove = getMassiveBookMove(moveHistory);
-		if (bookMove) {
-			// Output using the new fast format: "from,to"
-			console.log(`${bookMove.from},${bookMove.to}`);
-			return;
-		}
-
-		// Fallback to normal thinking engine if book doesn't know the position
-		const board = new ChessBoard();
-		for (const m of moveHistory) {
-			const piece = board.getPieceAtSquare(m.from);
-			if (piece) board.movePiece(m, piece.pieceType, piece.color);
-		}
-
-		const bestMove = engine.getBestMove(board, 4);
-
-		if (bestMove) {
-			// Output using the new fast format: "from,to"
-			console.log(`${bestMove.from},${bestMove.to}`);
-		} else {
-			console.log("none"); // No legal moves left (checkmate or stalemate)
-		}
-		console.log(engine.evaluation(board));
-	} catch (err) {
-		console.log("error,invalid_input");
-	}
-});

@@ -1,10 +1,22 @@
 /* ----- CHESS BOARD ----- */
 /* Centers the entire board on the screen */
 .chess-board-container {
-	justify-content: center;
+	display: flex;
+	flex-direction: column;
 	align-items: center;
-	height: 100%;
+	justify-content: center;
+	gap: 12px;
+	min-height: 100%;
+	padding: 20px 0;
 	background-color: #242424;
+	position: relative;
+}
+
+.board-and-bar {
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+	gap: 12px;
 }
 
 /* Defines the 8x8 grid structure */
@@ -24,6 +36,7 @@
 	justify-content: center;
 	align-items: center;
 	user-select: none;
+	position: relative; /* anchor for the legal-move dot */
 }
 
 /* Alternating colors */
@@ -35,11 +48,38 @@
 	background-color: #b58863; /* Traditional dark brown */
 }
 
+.selected-square {
+	box-shadow: inset 0 0 0 4px #6fa8dcdd;
+}
+
+/* Dot shown on legal destination squares */
+.legal-move-dot {
+	position: absolute;
+	width: 28%;
+	height: 28%;
+	border-radius: 50%;
+	background-color: rgba(0, 0, 0, 0.28);
+	pointer-events: none;
+}
+
+/* When the legal target square is occupied (a capture), show a ring instead
+   of a filled dot so the piece underneath stays visible */
+.legal-move-dot.capture-dot {
+	width: 92%;
+	height: 92%;
+	background-color: transparent;
+	box-shadow: inset 0 0 0 5px rgba(0, 0, 0, 0.28);
+}
+
 /* ----- PIECES -----*/
 .piece-img {
 	width: 100%;
 	height: 100%;
 	object-fit: contain; /*  stretching */
+}
+
+.piece-img.draggable-piece {
+	cursor: grab;
 }
 
 .piece-container {
@@ -49,68 +89,171 @@
 }
 
 /* ----- EVALUATION BAR -----*/
-.bar-container {
-	position: fixed;
-	height: 45%;
-	width: 4%;
+.eval-bar-wrapper {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+	width: 32px;
+}
+
+.eval-bar-track {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 80vmin;
 	border-radius: 4px;
-	left: 19%;
+	overflow: hidden;
+	border: 2px solid #333;
 }
 
-#white-bar {
-	background-color: white;
-	top: 5%;
+.eval-bar-white {
+	background-color: #f5f5f5;
+	width: 100%;
+	transition: height 0.3s ease;
 }
 
-#black-bar {
-	background-color: darkgray;
-	bottom: 5%;
+.eval-bar-black {
+	background-color: #2b2b2b;
+	width: 100%;
+	transition: height 0.3s ease;
+}
+
+.eval-bar-score {
+	color: #ffd5ab;
+	font-size: 0.8rem;
+}
+
+.eval-bar-hide-btn,
+.eval-bar-show-btn {
+	background: #333;
+	color: #ffd5ab;
+	border: 1px solid #555;
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 0.75rem;
+	cursor: pointer;
 }
 
 /* ----- MOVE HISTORY -----*/
 .move-history-container {
-	/* Positions the div at the top right of the screen */
-	position: fixed;
-	top: 5%;
-	left: 60%;
-
-	/* Shapes the div into a rectangle */
+	position: relative;
 	width: 250px;
 	height: fit-content;
-
-	/* Aligns the inner text to the top-left of this rectangle */
+	max-height: 40vh;
+	overflow-y: auto;
 	text-align: left;
-	vertical-align: top;
-	padding: 15px; /* Adds breathing room so text doesn't touch the very edge */
-
-	/* Optional styling to make the rectangle visible */
+	padding: 15px;
 	background-color: #33333394;
 	color: #ffd5abec;
-	box-sizing: border-box; /* Ensures padding doesn't break the width/height */
+	box-sizing: border-box;
 }
+
+.move-history-title {
+	font-weight: bold;
+	margin-bottom: 8px;
+}
+
+.move-history-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.move-history-row {
+	display: flex;
+	gap: 10px;
+	padding: 2px 0;
+	font-family: monospace;
+}
+
+.move-number {
+	width: 24px;
+	opacity: 0.7;
+}
+
+.move-white,
+.move-black {
+	width: 70px;
+}
+
 /* ----- PLAYERS -----*/
+.players-container {
+	display: flex;
+	justify-content: center;
+}
+
 .player-container {
 	position: relative;
-	align-content: center;
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	text-align: center;
-	border: 3px orange solid;
+	border: 3px solid #555;
+	border-radius: 6px;
 	width: fit-content;
-	left: 50%;
+	padding: 6px 12px;
 }
 
-#white-player {
-	top: 10px;
+.player-container.active-player {
+	border-color: orange;
 }
-#black-player {
-	bottom: 10px;
-}
+
 /* ----- TAKEN PIECES -----*/
 .taken-pieces-container {
-	position: absolute;
-
-	/* Shifts the child back by half of its own width/height for perfect centering */
-	transform: translate(-50%, -50%);
+	display: flex;
+	flex-wrap: wrap;
+	max-width: 200px;
 }
+
+.taken-piece-img {
+	width: 20px;
+	height: 20px;
+}
+
 /* ----- CLOCKS AND TIME -----*/
 .clock-container {
+	font-family: monospace;
+	font-size: 1.2rem;
+	color: #ffd5ab;
+	padding: 4px 10px;
+	border-radius: 4px;
+	background: #1a1a1a;
+}
+
+.clock-container.clock-active {
+	background: #3a3a1a;
+	color: #ffe58a;
+}
+
+.clock-container.clock-low {
+	color: #ff6b6b;
+}
+
+/* ----- GAME OVER ----- */
+.game-over-banner {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: #1a1a1add;
+	color: #ffd5ab;
+	border: 2px solid orange;
+	border-radius: 8px;
+	padding: 20px 30px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12px;
+	font-size: 1.2rem;
+	z-index: 10;
+}
+
+.reset-btn {
+	background: orange;
+	border: none;
+	border-radius: 4px;
+	padding: 6px 14px;
+	cursor: pointer;
+	font-weight: bold;
 }

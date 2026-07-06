@@ -37,12 +37,12 @@ export function moveToUci(move: ChessMove): string {
 	const toFile = files[move.to % 8];
 	const toRank = Math.floor(move.to / 8) + 1;
 
-	let promotionChar = "";
-	if (move.promotion === Piece.Queen) promotionChar = "q";
-	if (move.promotion === Piece.Rook) promotionChar = "r";
-	if (move.promotion === Piece.Bishop) promotionChar = "b";
-	if (move.promotion === Piece.Knight) promotionChar = "n";
-
+	let promotionChar = "=";
+	if (move.promotion === Piece.Queen) promotionChar = "Q";
+	else if (move.promotion === Piece.Rook) promotionChar = "R";
+	else if (move.promotion === Piece.Bishop) promotionChar = "B";
+	else if (move.promotion === Piece.Knight) promotionChar = "N";
+	else promotionChar = "";
 	return `${fromFile}${fromRank}${toFile}${toRank}${promotionChar}`;
 }
 
