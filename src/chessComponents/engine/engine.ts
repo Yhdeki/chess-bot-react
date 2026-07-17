@@ -1,5 +1,5 @@
 import { ChessBoard } from "../chessBoard.ts";
-import { Piece, Color, type ChessMove } from "../types.ts";
+import { PieceType, Color, type ChessMove } from "../types.ts";
 import { moveToUci, uciToMove } from "./uciUtils.ts";
 
 export async function getMassiveBookMove(
@@ -113,7 +113,7 @@ export class ChessEngine {
 		const rank = Math.floor(sq / 8);
 		const enemyPawnIdx =
 			(color === Color.White ? Color.Black : Color.White) * 6 +
-			Piece.Pawn;
+			PieceType.Pawn;
 		const enemyPawns = board.pieces[enemyPawnIdx];
 
 		if (color === Color.White) {
@@ -150,7 +150,7 @@ export class ChessEngine {
 		const file = kingSq % 8;
 		const rank = Math.floor(kingSq / 8);
 		let shieldPoints = 0;
-		const ownPawnIdx = color * 6 + Piece.Pawn;
+		const ownPawnIdx = color * 6 + PieceType.Pawn;
 		const ownPawns = board.pieces[ownPawnIdx];
 
 		if (color === Color.White && rank <= 2) {
@@ -198,21 +198,21 @@ export class ChessEngine {
 		let blackBishopCount = 0;
 
 		const baseValues = {
-			[Piece.Pawn]: 100,
-			[Piece.Knight]: 320,
-			[Piece.Bishop]: 330,
-			[Piece.Rook]: 500,
-			[Piece.Queen]: 900,
-			[Piece.King]: 0,
+			[PieceType.Pawn]: 100,
+			[PieceType.Knight]: 320,
+			[PieceType.Bishop]: 330,
+			[PieceType.Rook]: 500,
+			[PieceType.Queen]: 900,
+			[PieceType.King]: 0,
 		};
 
 		const phaseWeights = {
-			[Piece.Pawn]: 0,
-			[Piece.Knight]: 1,
-			[Piece.Bishop]: 1,
-			[Piece.Rook]: 2,
-			[Piece.Queen]: 4,
-			[Piece.King]: 0,
+			[PieceType.Pawn]: 0,
+			[PieceType.Knight]: 1,
+			[PieceType.Bishop]: 1,
+			[PieceType.Rook]: 2,
+			[PieceType.Queen]: 4,
+			[PieceType.King]: 0,
 		};
 
 		for (let sq = 0; sq < 64; sq++) {
@@ -228,14 +228,14 @@ export class ChessEngine {
 			let mgScore = baseValues[type];
 			let egScore = baseValues[type];
 
-			if (type !== Piece.Pawn && type !== Piece.King) {
+			if (type !== PieceType.Pawn && type !== PieceType.King) {
 				const mobilityCount = board.getPseudoLegalMoves(sq).length;
 				mgScore += mobilityCount * 2;
 				egScore += mobilityCount * 2;
 			}
 
 			switch (type) {
-				case Piece.Pawn:
+				case PieceType.Pawn:
 					mgScore += pawnMG[pIdx];
 					egScore += pawnEG[pIdx];
 					if (this.isPassedPawn(sq, color, board)) {
@@ -245,28 +245,28 @@ export class ChessEngine {
 						egScore += passedBonus * 2;
 					}
 					break;
-				case Piece.Knight:
+				case PieceType.Knight:
 					mgScore += knightPST[pIdx];
 					egScore += knightPST[pIdx];
 					break;
-				case Piece.Bishop:
+				case PieceType.Bishop:
 					mgScore += bishopPST[pIdx];
 					egScore += bishopPST[pIdx];
 					if (color === Color.White) whiteBishopCount++;
 					else blackBishopCount++;
 					break;
-				case Piece.Rook: {
+				case PieceType.Rook: {
 					mgScore += rookMG[pIdx];
 					egScore += rookEG[pIdx];
 
 					const file = sq % 8;
 					let ownPawnOnFile = false;
 					let enemyPawnOnFile = false;
-					const ownPawnIdx = color * 6 + Piece.Pawn;
+					const ownPawnIdx = color * 6 + PieceType.Pawn;
 					const enemyPawnIdx =
 						(color === Color.White ? Color.Black : Color.White) *
 							6 +
-						Piece.Pawn;
+						PieceType.Pawn;
 
 					for (let r = 0; r < 8; r++) {
 						const fileSq = r * 8 + file;
@@ -294,11 +294,11 @@ export class ChessEngine {
 					}
 					break;
 				}
-				case Piece.Queen:
+				case PieceType.Queen:
 					mgScore += queenPST[pIdx];
 					egScore += queenPST[pIdx];
 					break;
-				case Piece.King:
+				case PieceType.King:
 					mgScore +=
 						kingMG[pIdx] + this.getKingSafety(sq, color, board);
 					egScore += kingEG[pIdx];
@@ -349,10 +349,14 @@ export class ChessEngine {
 				const destinations = board.getPseudoLegalMoves(sq);
 				for (const to of destinations) {
 					if (
-						piece.pieceType === Piece.Pawn &&
+						piece.pieceType === PieceType.Pawn &&
 						(Math.floor(to / 8) === 0 || Math.floor(to / 8) === 7)
 					) {
-						moves.push({ from: sq, to, promotion: Piece.Queen });
+						moves.push({
+							from: sq,
+							to,
+							promotion: PieceType.Queen,
+						});
 					} else {
 						moves.push({ from: sq, to });
 					}
@@ -444,7 +448,8 @@ export class ChessEngine {
 
 		if (legalMovesCount === 0) {
 			if (board.isChecked(board.sideToMove)) {
-				return -Infinity + depth;
+				const MATE_SCORE = 1_000_000;
+				return -(MATE_SCORE - depth);
 			}
 			return 0;
 		}

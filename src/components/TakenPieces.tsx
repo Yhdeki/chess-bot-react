@@ -1,9 +1,9 @@
 import "./components.css";
 import { getPieceImgPath } from "./Piece";
-import { Color, Piece } from "../chessComponents/types";
+import { type ChessPiece } from "../chessComponents/types";
 
 interface Props {
-	pieces: { type: Piece; color: Color }[];
+	pieces: ChessPiece[];
 }
 function TakenPieces({ pieces }: Props) {
 	return (
@@ -12,11 +12,11 @@ function TakenPieces({ pieces }: Props) {
 				<img
 					src={
 						"/chess-bot-react/src/assets/" +
-						getPieceImgPath(piece.type, piece.color)
+						getPieceImgPath(piece.pieceType, piece.color)
 					}
 					alt=""
 					className="taken-piece-img"
-					key={`${piece.type}-${piece.color}-${idx}`}
+					key={`${piece.pieceType}-${piece.color}-${idx}`}
 				/>
 			))}
 		</div>

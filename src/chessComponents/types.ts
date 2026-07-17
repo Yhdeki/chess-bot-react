@@ -1,4 +1,4 @@
-export const Piece = {
+export const PieceType = {
 	Pawn: 0,
 	Knight: 1,
 	Bishop: 2,
@@ -6,7 +6,10 @@ export const Piece = {
 	Queen: 4,
 	King: 5,
 } as const;
-
+export interface ChessPiece {
+	pieceType: PieceType;
+	color: Color;
+}
 export const Color = {
 	White: 0,
 	Black: 1,
@@ -32,42 +35,42 @@ export const CASTLE_RIGHTS = {
 export interface ChessMove {
 	from: number;
 	to: number;
-	promotion?: Piece;
+	promotion?: PieceType;
 }
-export type Piece = (typeof Piece)[keyof typeof Piece];
+export type PieceType = (typeof PieceType)[keyof typeof PieceType];
 export type Color = (typeof Color)[keyof typeof Color];
 export type TimeManagementSec =
 	(typeof TimeManagementSec)[keyof typeof TimeManagementSec];
 
-export function getPieceTypeByScore(score: number): Piece {
+export function getPieceTypeByScore(score: number): PieceType {
 	switch (score) {
 		case 1:
-			return Piece.Pawn;
+			return PieceType.Pawn;
 		case 3:
-			return Piece.Knight;
+			return PieceType.Knight;
 		case 3.2:
-			return Piece.Bishop;
+			return PieceType.Bishop;
 		case 5:
-			return Piece.Rook;
+			return PieceType.Rook;
 		case 9:
-			return Piece.Queen;
+			return PieceType.Queen;
 		default:
-			return Piece.King;
+			return PieceType.King;
 	}
 }
-export function getPieceNameByType(type: Piece): string | null {
+export function getPieceNameByType(type: PieceType): string | null {
 	switch (type) {
-		case Piece.Pawn:
+		case PieceType.Pawn:
 			return "pawn";
-		case Piece.Knight:
+		case PieceType.Knight:
 			return "knight";
-		case Piece.Bishop:
+		case PieceType.Bishop:
 			return "bishop";
-		case Piece.Rook:
+		case PieceType.Rook:
 			return "rook";
-		case Piece.Queen:
+		case PieceType.Queen:
 			return "queen";
-		case Piece.King:
+		case PieceType.King:
 			return "king";
 		default:
 			return null;

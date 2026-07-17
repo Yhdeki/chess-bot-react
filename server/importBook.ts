@@ -16,7 +16,7 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { ChessBoard } from "../src/chessComponents/chessBoard";
-import { Color, Piece, type ChessMove } from "../src/chessComponents/types";
+import { Color, PieceType, type ChessMove } from "../src/chessComponents/types";
 import { moveToUci } from "../src/chessComponents/engine/uciUtils";
 
 const DB_PATH = path.resolve(process.cwd(), "mega_opening_book.db");
@@ -57,32 +57,32 @@ function parseSanMove(san: string, board: ChessBoard): ChessMove | null {
 	}
 
 	let targetStr = cleanSan.slice(-2);
-	let promotionPiece: Piece | undefined;
+	let promotionPiece: PieceType | undefined;
 
 	if (cleanSan.includes("=")) {
 		const parts = cleanSan.split("=");
 		targetStr = parts[0].slice(-2);
 		const pChar = parts[1][0];
-		if (pChar === "Q") promotionPiece = Piece.Queen;
-		if (pChar === "R") promotionPiece = Piece.Rook;
-		if (pChar === "B") promotionPiece = Piece.Bishop;
-		if (pChar === "N") promotionPiece = Piece.Knight;
+		if (pChar === "Q") promotionPiece = PieceType.Queen;
+		if (pChar === "R") promotionPiece = PieceType.Rook;
+		if (pChar === "B") promotionPiece = PieceType.Bishop;
+		if (pChar === "N") promotionPiece = PieceType.Knight;
 	}
 
 	const targetFile = targetStr.charCodeAt(0) - 97;
 	const targetRank = parseInt(targetStr[1]) - 1;
 	const targetSq = targetRank * 8 + targetFile;
 
-	let expectedType: Piece = Piece.Pawn;
+	let expectedType: PieceType = PieceType.Pawn;
 	let lookForPiece = cleanSan[0];
 	let disambiguation = "";
 
 	if (["N", "B", "R", "Q", "K"].includes(lookForPiece)) {
-		if (lookForPiece === "N") expectedType = Piece.Knight;
-		if (lookForPiece === "B") expectedType = Piece.Bishop;
-		if (lookForPiece === "R") expectedType = Piece.Rook;
-		if (lookForPiece === "Q") expectedType = Piece.Queen;
-		if (lookForPiece === "K") expectedType = Piece.King;
+		if (lookForPiece === "N") expectedType = PieceType.Knight;
+		if (lookForPiece === "B") expectedType = PieceType.Bishop;
+		if (lookForPiece === "R") expectedType = PieceType.Rook;
+		if (lookForPiece === "Q") expectedType = PieceType.Queen;
+		if (lookForPiece === "K") expectedType = PieceType.King;
 
 		disambiguation = cleanSan
 			.slice(1, cleanSan.includes("=") ? cleanSan.indexOf("=") - 2 : -2)

@@ -1,10 +1,10 @@
 // Square.tsx
-import { Color, Piece } from "../chessComponents/types.ts";
+import { Color, type ChessPiece } from "../chessComponents/types.ts";
 import { InteractivePiece } from "./Piece.tsx";
 import type { DragEvent } from "react";
 
 interface Props {
-	piece: { pieceType: Piece; color: Color } | null;
+	piece: ChessPiece | null;
 	color: Color;
 	squareIndex: number;
 	isSelected: boolean;

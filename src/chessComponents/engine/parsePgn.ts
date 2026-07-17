@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { ChessBoard } from "../chessBoard.ts";
-import { Piece, Color, type ChessMove } from "../types.ts";
+import { PieceType, Color, type ChessMove } from "../types.ts";
 
 // =========================================================================
 // 1. DATABASE INITIALIZATION (Matches mega_opening_book.db expected by engine)
@@ -37,10 +37,10 @@ export function moveToUci(move: ChessMove): string {
 	const toRank = Math.floor(move.to / 8) + 1;
 
 	let promotionChar = "=";
-	if (move.promotion === Piece.Queen) promotionChar = "Q";
-	else if (move.promotion === Piece.Rook) promotionChar = "R";
-	else if (move.promotion === Piece.Bishop) promotionChar = "B";
-	else if (move.promotion === Piece.Knight) promotionChar = "N";
+	if (move.promotion === PieceType.Queen) promotionChar = "Q";
+	else if (move.promotion === PieceType.Rook) promotionChar = "R";
+	else if (move.promotion === PieceType.Bishop) promotionChar = "B";
+	else if (move.promotion === PieceType.Knight) promotionChar = "N";
 	else promotionChar = "";
 	return `${fromFile}${fromRank}${toFile}${toRank}${promotionChar}`;
 }
@@ -59,10 +59,10 @@ export function uciToMove(uci: string): ChessMove {
 
 	if (uci.length === 5) {
 		const p = uci[4];
-		if (p === "q") move.promotion = Piece.Queen;
-		if (p === "r") move.promotion = Piece.Rook;
-		if (p === "b") move.promotion = Piece.Bishop;
-		if (p === "n") move.promotion = Piece.Knight;
+		if (p === "q") move.promotion = PieceType.Queen;
+		if (p === "r") move.promotion = PieceType.Rook;
+		if (p === "b") move.promotion = PieceType.Bishop;
+		if (p === "n") move.promotion = PieceType.Knight;
 	}
 
 	return move;
@@ -89,17 +89,17 @@ function parseSanMove(san: string, board: ChessBoard): ChessMove | null {
 
 	// Determine target square coordinates
 	let targetStr = cleanSan.slice(-2);
-	let promotionPiece: Piece | undefined;
+	let promotionPiece: PieceType | undefined;
 
 	// Check for Pawn Promotion (e.g., e8=Q)
 	if (cleanSan.includes("=")) {
 		const parts = cleanSan.split("=");
 		targetStr = parts[0].slice(-2);
 		const pChar = parts[1][0];
-		if (pChar === "Q") promotionPiece = Piece.Queen;
-		if (pChar === "R") promotionPiece = Piece.Rook;
-		if (pChar === "B") promotionPiece = Piece.Bishop;
-		if (pChar === "N") promotionPiece = Piece.Knight;
+		if (pChar === "Q") promotionPiece = PieceType.Queen;
+		if (pChar === "R") promotionPiece = PieceType.Rook;
+		if (pChar === "B") promotionPiece = PieceType.Bishop;
+		if (pChar === "N") promotionPiece = PieceType.Knight;
 	}
 
 	const targetFile = targetStr.charCodeAt(0) - 97; // 'a' -> 0
@@ -107,16 +107,16 @@ function parseSanMove(san: string, board: ChessBoard): ChessMove | null {
 	const targetSq = targetRank * 8 + targetFile;
 
 	// Determine piece type
-	let expectedType: Piece = Piece.Pawn;
+	let expectedType: PieceType = PieceType.Pawn;
 	let lookForPiece = cleanSan[0];
 	let disambiguation = "";
 
 	if (["N", "B", "R", "Q", "K"].includes(lookForPiece)) {
-		if (lookForPiece === "N") expectedType = Piece.Knight;
-		if (lookForPiece === "B") expectedType = Piece.Bishop;
-		if (lookForPiece === "R") expectedType = Piece.Rook;
-		if (lookForPiece === "Q") expectedType = Piece.Queen;
-		if (lookForPiece === "K") expectedType = Piece.King;
+		if (lookForPiece === "N") expectedType = PieceType.Knight;
+		if (lookForPiece === "B") expectedType = PieceType.Bishop;
+		if (lookForPiece === "R") expectedType = PieceType.Rook;
+		if (lookForPiece === "Q") expectedType = PieceType.Queen;
+		if (lookForPiece === "K") expectedType = PieceType.King;
 
 		// Everything between piece identification symbol and target coordinates
 		disambiguation = cleanSan

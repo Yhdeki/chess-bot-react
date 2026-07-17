@@ -1,11 +1,11 @@
 // Piece.tsx
-import { Color, Piece } from "../chessComponents/types";
+import { Color, PieceType } from "../chessComponents/types";
 import "./components.css";
 import React from "react";
 import type { DragEvent } from "react";
 
 interface Props {
-	type: Piece;
+	type: PieceType;
 	color: Color;
 	square: number;
 	draggable: boolean;
@@ -42,7 +42,7 @@ export const InteractivePiece: React.FC<Props> = ({
 	);
 };
 
-export const getPieceImgPath = (type: Piece, color: Color) => {
+export const getPieceImgPath = (type: PieceType, color: Color) => {
 	const typeChars = ["p", "n", "b", "r", "q", "k"];
 	const colorChar = color === Color.White ? "l" : "d";
 	return `Chess_${typeChars[type]}${colorChar}t45.svg`;

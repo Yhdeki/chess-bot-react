@@ -1,4 +1,4 @@
-import { Color, Piece } from "../chessComponents/types";
+import { Color, PieceType } from "../chessComponents/types";
 import Clock from "./Clock";
 import TakenPieces from "./TakenPieces";
 
@@ -6,7 +6,7 @@ interface Props {
 	timeSec: number;
 	id: string;
 	isActive: boolean;
-	capturedPieces: { type: Piece; color: Color }[];
+	capturedPieces: { type: PieceType; color: Color }[];
 }
 function ChessPlayer({ timeSec, id, isActive, capturedPieces }: Props) {
 	return (

@@ -1,6 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { ChessBoard } from "./chessBoard.ts";
-import { type ChessMove, Color, Piece, TimeManagementSec } from "./types.ts";
+import {
+	type ChessMove,
+	Color,
+	PieceType,
+	TimeManagementSec,
+} from "./types.ts";
 
 export type GameOverReason = "checkmate" | "stalemate" | "timeout";
 export interface GameOverInfo {
@@ -48,7 +53,7 @@ export function useGameState(
 	);
 
 	const makeMove = useCallback(
-		(move: ChessMove, pieceType: Piece) => {
+		(move: ChessMove, pieceType: PieceType) => {
 			// 1. Create a deep clone of the board first
 			const nextBoard = board.clone();
 

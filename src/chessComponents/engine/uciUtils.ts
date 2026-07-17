@@ -4,7 +4,7 @@
 // why it's split out of parsePgn.ts: that file does `new Database(...)` at
 // module load time, so anything importing it (even just for these two
 // functions) pulled better-sqlite3 into the browser bundle.
-import { Piece, type ChessMove } from "../types.ts";
+import { PieceType, type ChessMove } from "../types.ts";
 
 export function moveToUci(move: ChessMove): string {
 	const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -19,10 +19,10 @@ export function moveToUci(move: ChessMove): string {
 	// the book via moveToUci() silently lost its promotion when read back
 	// via uciToMove() — confirmed with a round-trip test before fixing.
 	let promotionChar = "";
-	if (move.promotion === Piece.Queen) promotionChar = "q";
-	else if (move.promotion === Piece.Rook) promotionChar = "r";
-	else if (move.promotion === Piece.Bishop) promotionChar = "b";
-	else if (move.promotion === Piece.Knight) promotionChar = "n";
+	if (move.promotion === PieceType.Queen) promotionChar = "q";
+	else if (move.promotion === PieceType.Rook) promotionChar = "r";
+	else if (move.promotion === PieceType.Bishop) promotionChar = "b";
+	else if (move.promotion === PieceType.Knight) promotionChar = "n";
 
 	return `${fromFile}${fromRank}${toFile}${toRank}${promotionChar}`;
 }
@@ -41,10 +41,10 @@ export function uciToMove(uci: string): ChessMove {
 
 	if (uci.length === 5) {
 		const p = uci[4];
-		if (p === "q") move.promotion = Piece.Queen;
-		if (p === "r") move.promotion = Piece.Rook;
-		if (p === "b") move.promotion = Piece.Bishop;
-		if (p === "n") move.promotion = Piece.Knight;
+		if (p === "q") move.promotion = PieceType.Queen;
+		if (p === "r") move.promotion = PieceType.Rook;
+		if (p === "b") move.promotion = PieceType.Bishop;
+		if (p === "n") move.promotion = PieceType.Knight;
 	}
 
 	return move;

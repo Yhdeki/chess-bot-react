@@ -6,15 +6,16 @@ import {
 	getQueenAttacks,
 } from "./precomputedMoves.ts";
 import {
-	Piece,
+	PieceType,
 	Color,
 	CASTLE_RIGHTS,
 	type ChessMove,
 	getPieceNameByType,
+	type ChessPiece,
 } from "./types.ts";
 
 const sqToBB = (sq: number): bigint => 1n << BigInt(sq);
-
+const SIDE_LEN = 8;
 export class ChessBoard {
 	public pieces: bigint[] = new Array(12).fill(0n);
 	public colors: bigint[] = new Array(2).fill(0n);
@@ -26,11 +27,16 @@ export class ChessBoard {
 	public halfMoveClock: number = 0;
 	public totalNumOfMoves: number = 0;
 	public moveHistory: ChessMove[] = []; // Track move history for opening book lookups
-	public capturedPieces: { type: Piece; color: Color }[] = []; // NEW: pieces taken so far, in order
+	public capturedPieces: ChessPiece[] = [];
 
-	constructor(customPieces?: bigint[]) {
-		if (customPieces && customPieces.length === 12) {
+	public mailbox: Array<ChessPiece | null> = [];
+	constructor(
+		customPieces?: bigint[],
+		customMailbox?: Array<ChessPiece | null>,
+	) {
+		if (customPieces && customPieces.length === 12 && customMailbox) {
 			this.pieces = [...customPieces];
+			this.mailbox = [...customMailbox];
 			this.updateOccupancy();
 		} else {
 			this.initializeDefaultBoard();
@@ -38,23 +44,63 @@ export class ChessBoard {
 	}
 
 	private initializeDefaultBoard() {
-		this.pieces[Color.White * 6 + Piece.Pawn] = 0x000000000000ff00n;
-		this.pieces[Color.Black * 6 + Piece.Pawn] = 0x00ff000000000000n;
-		this.pieces[Color.White * 6 + Piece.Knight] = 0x0000000000000042n;
-		this.pieces[Color.Black * 6 + Piece.Knight] = 0x4200000000000000n;
-		this.pieces[Color.White * 6 + Piece.Bishop] = 0x0000000000000024n;
-		this.pieces[Color.Black * 6 + Piece.Bishop] = 0x2400000000000000n;
-		this.pieces[Color.White * 6 + Piece.Rook] = 0x0000000000000081n;
-		this.pieces[Color.Black * 6 + Piece.Rook] = 0x8100000000000000n;
-		this.pieces[Color.White * 6 + Piece.Queen] = 0x0000000000000008n;
-		this.pieces[Color.Black * 6 + Piece.Queen] = 0x0800000000000000n;
-		this.pieces[Color.White * 6 + Piece.King] = 0x0000000000000010n;
-		this.pieces[Color.Black * 6 + Piece.King] = 0x1000000000000000n;
+		this.pieces[Color.White * 6 + PieceType.Pawn] = 0x000000000000ff00n;
+		this.pieces[Color.Black * 6 + PieceType.Pawn] = 0x00ff000000000000n;
+		this.pieces[Color.White * 6 + PieceType.Knight] = 0x0000000000000042n;
+		this.pieces[Color.Black * 6 + PieceType.Knight] = 0x4200000000000000n;
+		this.pieces[Color.White * 6 + PieceType.Bishop] = 0x0000000000000024n;
+		this.pieces[Color.Black * 6 + PieceType.Bishop] = 0x2400000000000000n;
+		this.pieces[Color.White * 6 + PieceType.Rook] = 0x0000000000000081n;
+		this.pieces[Color.Black * 6 + PieceType.Rook] = 0x8100000000000000n;
+		this.pieces[Color.White * 6 + PieceType.Queen] = 0x0000000000000008n;
+		this.pieces[Color.Black * 6 + PieceType.Queen] = 0x0800000000000000n;
+		this.pieces[Color.White * 6 + PieceType.King] = 0x0000000000000010n;
+		this.pieces[Color.Black * 6 + PieceType.King] = 0x1000000000000000n;
+
+		// Creating a board for easier access to a piece at a certain square
+		[
+			{ pieceType: PieceType.Rook, color: Color.White },
+			{ pieceType: PieceType.Knight, color: Color.White },
+			{ pieceType: PieceType.Bishop, color: Color.White },
+			{ pieceType: PieceType.Queen, color: Color.White },
+			{ pieceType: PieceType.King, color: Color.White },
+			{ pieceType: PieceType.Bishop, color: Color.White },
+			{ pieceType: PieceType.Knight, color: Color.White },
+			{ pieceType: PieceType.Rook, color: Color.White },
+		].forEach((element) => {
+			this.mailbox.push(element);
+		});
+		for (let i = 0; i < SIDE_LEN; i++) {
+			this.mailbox.push({
+				pieceType: PieceType.Pawn,
+				color: Color.White,
+			});
+		}
+		for (let i = 0; i < SIDE_LEN * 4; i++) {
+			this.mailbox.push(null);
+		}
+		for (let i = 0; i < SIDE_LEN; i++) {
+			this.mailbox.push({
+				pieceType: PieceType.Pawn,
+				color: Color.Black,
+			});
+		}
+		[
+			{ pieceType: PieceType.Rook, color: Color.Black },
+			{ pieceType: PieceType.Knight, color: Color.Black },
+			{ pieceType: PieceType.Bishop, color: Color.Black },
+			{ pieceType: PieceType.Queen, color: Color.Black },
+			{ pieceType: PieceType.King, color: Color.Black },
+			{ pieceType: PieceType.Bishop, color: Color.Black },
+			{ pieceType: PieceType.Knight, color: Color.Black },
+			{ pieceType: PieceType.Rook, color: Color.Black },
+		].forEach((element) => {
+			this.mailbox?.push(element);
+		});
 		this.updateOccupancy();
 	}
 
 	public updateOccupancy() {
-		// Accumulate white pieces (indices 0 to 5)
 		this.colors[Color.White] =
 			this.pieces[0] |
 			this.pieces[1] |
@@ -63,7 +109,6 @@ export class ChessBoard {
 			this.pieces[4] |
 			this.pieces[5];
 
-		// Accumulate black pieces (indices 6 to 11)
 		this.colors[Color.Black] =
 			this.pieces[6] |
 			this.pieces[7] |
@@ -72,23 +117,12 @@ export class ChessBoard {
 			this.pieces[10] |
 			this.pieces[11];
 
-		// Combined board occupancy map
 		this.combinedOccupancy =
 			this.colors[Color.White] | this.colors[Color.Black];
 	}
 
-	public getPieceAtSquare(
-		square: number,
-	): { pieceType: Piece; color: Color } | null {
-		const mask = sqToBB(square);
-		for (let c = 0; c < 2; c++) {
-			for (let p = 0; p < 6; p++) {
-				if ((this.pieces[c * 6 + p] & mask) !== 0n) {
-					return { pieceType: p as Piece, color: c as Color };
-				}
-			}
-		}
-		return null;
+	public getPieceAtSquare(square: number): ChessPiece | null {
+		return this.mailbox[square];
 	}
 	public getPieceNameAtSquare(square: number): string | null {
 		const pieceInfo = this.getPieceAtSquare(square);
@@ -106,32 +140,33 @@ export class ChessBoard {
 		// Check Slider Attacks from the objective square out
 		if (
 			(getBishopAttacks(square, occ) &
-				(this.pieces[byColor * 6 + Piece.Bishop] |
-					this.pieces[byColor * 6 + Piece.Queen])) !==
+				(this.pieces[byColor * 6 + PieceType.Bishop] |
+					this.pieces[byColor * 6 + PieceType.Queen])) !==
 			0n
 		)
 			return true;
 		if (
 			(getRookAttacks(square, occ) &
-				(this.pieces[byColor * 6 + Piece.Rook] |
-					this.pieces[byColor * 6 + Piece.Queen])) !==
+				(this.pieces[byColor * 6 + PieceType.Rook] |
+					this.pieces[byColor * 6 + PieceType.Queen])) !==
 			0n
 		)
 			return true;
 		if (
 			(getKnightAttacks(square) &
-				this.pieces[byColor * 6 + Piece.Knight]) !==
+				this.pieces[byColor * 6 + PieceType.Knight]) !==
 			0n
 		)
 			return true;
 		if (
-			(getKingAttacks(square) & this.pieces[byColor * 6 + Piece.King]) !==
+			(getKingAttacks(square) &
+				this.pieces[byColor * 6 + PieceType.King]) !==
 			0n
 		)
 			return true;
 
 		// Pawns
-		const pawns = this.pieces[byColor * 6 + Piece.Pawn];
+		const pawns = this.pieces[byColor * 6 + PieceType.Pawn];
 		const sqMask = sqToBB(square);
 		if (byColor === Color.White) {
 			// White pawns attacking black from down-left / down-right
@@ -151,7 +186,7 @@ export class ChessBoard {
 	}
 
 	public isChecked(color: Color): boolean {
-		const kingBB = this.pieces[color * 6 + Piece.King];
+		const kingBB = this.pieces[color * 6 + PieceType.King];
 		if (kingBB === 0n) return false;
 		const kingSquare = Number(this.bitScanForward(kingBB));
 		return this.isSquareAttacked(
@@ -172,10 +207,10 @@ export class ChessBoard {
 		let movesMask = 0n;
 
 		switch (pieceType) {
-			case Piece.Knight:
+			case PieceType.Knight:
 				movesMask = getKnightAttacks(square) & ~ownPieces;
 				break;
-			case Piece.King:
+			case PieceType.King:
 				movesMask = getKingAttacks(square) & ~ownPieces;
 				// Castling
 				if (color === Color.White) {
@@ -210,16 +245,16 @@ export class ChessBoard {
 						movesMask |= sqToBB(58);
 				}
 				break;
-			case Piece.Bishop:
+			case PieceType.Bishop:
 				movesMask = getBishopAttacks(square, occ) & ~ownPieces;
 				break;
-			case Piece.Rook:
+			case PieceType.Rook:
 				movesMask = getRookAttacks(square, occ) & ~ownPieces;
 				break;
-			case Piece.Queen:
+			case PieceType.Queen:
 				movesMask = getQueenAttacks(square, occ) & ~ownPieces;
 				break;
-			case Piece.Pawn: {
+			case PieceType.Pawn: {
 				const bit = sqToBB(square);
 				if (color === Color.White) {
 					const singlePush = bit << 8n;
@@ -308,51 +343,112 @@ export class ChessBoard {
 		return legal;
 	}
 
-	public movePiece(move: ChessMove, pieceType: Piece, color: Color): void {
+	public movePiece(
+		move: ChessMove,
+		pieceType: PieceType,
+		color: Color,
+	): void {
 		const fromMask = sqToBB(move.from);
 		const toMask = sqToBB(move.to);
 		const pIdx = color * 6 + pieceType;
 		const enemyColor = color === Color.White ? Color.Black : Color.White;
 
-		// 1. Reset En Passant Target status
+		// Reset En Passant Target status
 		let nextEnPassantSquare: number | null = null;
 
-		// 2. Handle Castling Execution
-		if (pieceType === Piece.King && Math.abs(move.to - move.from) === 2) {
+		// Handle Castling Execution
+		if (
+			pieceType === PieceType.King &&
+			Math.abs(move.to - move.from) === 2
+		) {
 			if (move.to === 6) {
 				// WK
-				this.pieces[Color.White * 6 + Piece.Rook] ^=
+				this.pieces[Color.White * 6 + PieceType.Rook] ^=
 					sqToBB(7) | sqToBB(5);
+				// Update the board
+				this.mailbox[4] = null;
+				this.mailbox[6] = {
+					pieceType: PieceType.King,
+					color: Color.White,
+				};
+				this.mailbox[7] = null;
+				this.mailbox[5] = {
+					pieceType: PieceType.Rook,
+					color: Color.White,
+				};
 			} else if (move.to === 2) {
 				// WQ
-				this.pieces[Color.White * 6 + Piece.Rook] ^=
+				this.pieces[Color.White * 6 + PieceType.Rook] ^=
 					sqToBB(0) | sqToBB(3);
+
+				this.mailbox[4] = null;
+				this.mailbox[2] = {
+					pieceType: PieceType.King,
+					color: Color.White,
+				};
+				this.mailbox[0] = null;
+				this.mailbox[3] = {
+					pieceType: PieceType.Rook,
+					color: Color.White,
+				};
 			} else if (move.to === 62) {
 				// BK
-				this.pieces[Color.Black * 6 + Piece.Rook] ^=
+				this.pieces[Color.Black * 6 + PieceType.Rook] ^=
 					sqToBB(63) | sqToBB(61);
+
+				this.mailbox[60] = null;
+				this.mailbox[62] = {
+					pieceType: PieceType.King,
+					color: Color.Black,
+				};
+				this.mailbox[63] = null;
+				this.mailbox[61] = {
+					pieceType: PieceType.Rook,
+					color: Color.Black,
+				};
 			} else if (move.to === 58) {
 				// BQ
-				this.pieces[Color.Black * 6 + Piece.Rook] ^=
+				this.pieces[Color.Black * 6 + PieceType.Rook] ^=
 					sqToBB(56) | sqToBB(59);
+
+				this.mailbox[60] = null;
+				this.mailbox[58] = {
+					pieceType: PieceType.King,
+					color: Color.Black,
+				};
+				this.mailbox[56] = null;
+				this.mailbox[59] = {
+					pieceType: PieceType.Rook,
+					color: Color.Black,
+				};
 			}
 		}
 
-		// 3. Handle En Passant Capture Logic
-		if (pieceType === Piece.Pawn && move.to === this.enPassantSquare) {
+		// Handle En Passant Capture Logic
+		if (pieceType === PieceType.Pawn && move.to === this.enPassantSquare) {
 			const epCaptureSq =
-				color === Color.White ? move.to - 8 : move.to + 8;
-			this.pieces[enemyColor * 6 + Piece.Pawn] &= ~sqToBB(epCaptureSq);
-			this.capturedPieces.push({ type: Piece.Pawn, color: enemyColor });
+				color === Color.White ? move.to - SIDE_LEN : move.to + SIDE_LEN;
+			this.pieces[enemyColor * 6 + PieceType.Pawn] &=
+				~sqToBB(epCaptureSq);
+
+			this.mailbox[move.from] = null;
+			this.mailbox[move.to] = { pieceType: pieceType, color: color };
+
+			this.mailbox[epCaptureSq] = null;
+
+			this.capturedPieces.push({
+				pieceType: PieceType.Pawn,
+				color: enemyColor,
+			});
 		}
 
-		// 4. Handle Standard Captures
+		// Handle Standard Captures
 		if ((toMask & this.combinedOccupancy) !== 0n) {
 			for (let i = enemyColor * 6; i < enemyColor * 6 + 6; i++) {
 				if ((this.pieces[i] & toMask) !== 0n) {
 					this.pieces[i] &= ~toMask;
 					this.capturedPieces.push({
-						type: (i - enemyColor * 6) as Piece,
+						pieceType: (i - enemyColor * 6) as PieceType,
 						color: enemyColor,
 					});
 					break;
@@ -360,31 +456,38 @@ export class ChessBoard {
 			}
 		}
 
-		// 5. Update Moving Piece Location
+		// Update Moving Piece Location
 		this.pieces[pIdx] &= ~fromMask;
 		this.pieces[pIdx] |= toMask;
 
-		// 6. Handle Pawn Double Steps (Setting up new EP targets)
-		if (pieceType === Piece.Pawn && Math.abs(move.to - move.from) === 16) {
+		this.mailbox[move.from] = null;
+		this.mailbox[move.to] = { pieceType: pieceType, color: color };
+
+		// Handle Pawn Double Steps (Setting up new EP targets)
+		if (
+			pieceType === PieceType.Pawn &&
+			Math.abs(move.to - move.from) === 16
+		) {
 			nextEnPassantSquare =
 				color === Color.White ? move.from + 8 : move.from - 8;
 		}
 
-		// 7. Handle Pawn Promotions
+		// Handle Pawn Promotions
 		if (
-			pieceType === Piece.Pawn &&
+			pieceType === PieceType.Pawn &&
 			(Math.floor(move.to / 8) === 7 || Math.floor(move.to / 8) === 0)
 		) {
 			this.pieces[pIdx] &= ~toMask;
 			const promoPiece =
-				move.promotion !== undefined ? move.promotion : Piece.Queen;
+				move.promotion !== undefined ? move.promotion : PieceType.Queen;
 			this.pieces[color * 6 + promoPiece] |= toMask;
+			this.mailbox[move.to] = { pieceType: promoPiece, color: color };
 		}
 
-		// 8. Dynamic Castling Rights Revocation
-		if (pieceType === Piece.King) {
+		// Dynamic Castling Rights Revocation
+		if (pieceType === PieceType.King) {
 			this.castlingMask &= color === Color.White ? ~3 : ~12;
-		} else if (pieceType === Piece.Rook) {
+		} else if (pieceType === PieceType.Rook) {
 			if (move.from === 0) this.castlingMask &= ~CASTLE_RIGHTS.WQ;
 			if (move.from === 7) this.castlingMask &= ~CASTLE_RIGHTS.WK;
 			if (move.from === 56) this.castlingMask &= ~CASTLE_RIGHTS.BQ;
