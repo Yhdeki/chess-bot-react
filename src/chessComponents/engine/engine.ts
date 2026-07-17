@@ -1,39 +1,29 @@
 import { ChessBoard } from "../chessBoard.ts";
 import { Piece, Color, type ChessMove } from "../types.ts";
-import { moveToUci, uciToMove } from "./parsePgn.ts";
+import { moveToUci, uciToMove } from "./uciUtils.ts";
 
-import Database from "better-sqlite3";
-
-const db = new Database("mega_opening_book.db");
-
-/**
- * Queries a massive local database for the best move based on history.
- * This keeps memory usage near 0 MB regardless of how large the book is.
- */
-export function getMassiveBookMove(moveHistory: ChessMove[]): ChessMove | null {
-	// 1. Convert history array to a single string identifier
+export async function getMassiveBookMove(
+	moveHistory: ChessMove[],
+): Promise<ChessMove | null> {
 	const uciHistoryString = moveHistory.map(moveToUci).join(" ");
 
-	// 2. Query the database for moves matching this exact line
-	// We select the moves and order them by weight/popularity among grandmasters
-	const query = db.prepare(`
-        SELECT chosen_move, weight 
-        FROM openings 
-        WHERE history_string = ? 
-        ORDER BY weight DESC 
-        LIMIT 5
-    `);
-
-	const potentialMoves = query.all(uciHistoryString) as {
-		chosen_move: string;
-		weight: number;
-	}[];
-
-	if (potentialMoves.length === 0) {
-		return null; // Book out of bounds -> switch to engine calculation
+	let potentialMoves: { chosen_move: string; weight: number }[];
+	try {
+		const res = await fetch(
+			`/api/book-move?history=${encodeURIComponent(uciHistoryString)}`,
+		);
+		if (!res.ok) return null;
+		potentialMoves = await res.json();
+	} catch {
+		// Book server not running / unreachable — fall back to search rather
+		// than crashing the game.
+		return null;
 	}
 
-	// 3. Weighted random selection so your engine doesn't play the exact same game every time
+	if (potentialMoves.length === 0) {
+		return null;
+	}
+
 	const totalWeight = potentialMoves.reduce((sum, m) => sum + m.weight, 0);
 	let randomThreshold = Math.floor(Math.random() * totalWeight);
 
@@ -46,8 +36,9 @@ export function getMassiveBookMove(moveHistory: ChessMove[]): ChessMove | null {
 
 	return uciToMove(potentialMoves[0].chosen_move);
 }
+
 // ==========================================
-// PIECE SQUARE TABLES (PST) - VALUES CORRESPOND TO SQUARE INDICES 0 (A1) TO 63 (H8)
+// PIECE SQUARE TABLES (PST) - unchanged from your original
 // ==========================================
 
 const pawnMG = [
@@ -117,9 +108,6 @@ export class ChessEngine {
 		this.name = name;
 	}
 
-	/**
-	 * Determines if a pawn on a square is a "Passed Pawn"
-	 */
 	private isPassedPawn(sq: number, color: Color, board: ChessBoard): boolean {
 		const file = sq % 8;
 		const rank = Math.floor(sq / 8);
@@ -154,9 +142,6 @@ export class ChessEngine {
 		return true;
 	}
 
-	/**
-	 * Evaluates the pawn shield density surrounding the King's perimeter
-	 */
 	private getKingSafety(
 		kingSq: number,
 		color: Color,
@@ -202,9 +187,6 @@ export class ChessEngine {
 		return shieldPoints;
 	}
 
-	/**
-	 * Comprehensive evaluation accounting for material weights, phase, PST maps, and pawn metrics.
-	 */
 	evaluation(board: ChessBoard): number {
 		let mgWhite = 0,
 			mgBlack = 0;
@@ -224,7 +206,6 @@ export class ChessEngine {
 			[Piece.King]: 0,
 		};
 
-		// Game Phase Weight Contributions
 		const phaseWeights = {
 			[Piece.Pawn]: 0,
 			[Piece.Knight]: 1,
@@ -241,14 +222,12 @@ export class ChessEngine {
 			const type = piece.pieceType;
 			const color = piece.color;
 
-			// Mirror row alignment index strictly for black evaluation mapping
 			const pIdx = color === Color.White ? sq ^ 56 : sq;
 			gamePhaseCount += phaseWeights[type];
 
 			let mgScore = baseValues[type];
 			let egScore = baseValues[type];
 
-			// --- Positional Extension: Mobility Scoring ---
 			if (type !== Piece.Pawn && type !== Piece.King) {
 				const mobilityCount = board.getPseudoLegalMoves(sq).length;
 				mgScore += mobilityCount * 2;
@@ -261,9 +240,9 @@ export class ChessEngine {
 					egScore += pawnEG[pIdx];
 					if (this.isPassedPawn(sq, color, board)) {
 						const rank = Math.floor(pIdx / 8);
-						const passedBonus = rank * 15; // Scaled reward up the ranks
+						const passedBonus = rank * 15;
 						mgScore += passedBonus;
-						egScore += passedBonus * 2; // Passed pawns shine in endgame!
+						egScore += passedBonus * 2;
 					}
 					break;
 				case Piece.Knight:
@@ -276,11 +255,10 @@ export class ChessEngine {
 					if (color === Color.White) whiteBishopCount++;
 					else blackBishopCount++;
 					break;
-				case Piece.Rook:
+				case Piece.Rook: {
 					mgScore += rookMG[pIdx];
 					egScore += rookEG[pIdx];
 
-					// --- Positional Extension: Rooks on Open / Semi-open files ---
 					const file = sq % 8;
 					let ownPawnOnFile = false;
 					let enemyPawnOnFile = false;
@@ -307,14 +285,15 @@ export class ChessEngine {
 					}
 					if (!ownPawnOnFile) {
 						if (!enemyPawnOnFile) {
-							mgScore += 20; // Full Open File
+							mgScore += 20;
 							egScore += 20;
 						} else {
-							mgScore += 10; // Semi-Open File
+							mgScore += 10;
 							egScore += 10;
 						}
 					}
 					break;
+				}
 				case Piece.Queen:
 					mgScore += queenPST[pIdx];
 					egScore += queenPST[pIdx];
@@ -335,7 +314,6 @@ export class ChessEngine {
 			}
 		}
 
-		// --- Positional Extension: Bishop Pair Reward ---
 		if (whiteBishopCount >= 2) {
 			mgWhite += 30;
 			egWhite += 30;
@@ -345,11 +323,9 @@ export class ChessEngine {
 			egBlack += 30;
 		}
 
-		// Aggregate relative differentials
 		const mgDifferential = mgWhite - mgBlack;
 		const egDifferential = egWhite - egBlack;
 
-		// Taper calculations (Limit phase limit maximum to standard initial 24)
 		const totalInitialPhase = 24;
 		const currentPhase =
 			gamePhaseCount > totalInitialPhase
@@ -386,14 +362,18 @@ export class ChessEngine {
 		return moves;
 	}
 
-	getBestMove(board: ChessBoard, maxDepth: number): ChessMove | null {
-		// Check opening book database first via the persistent history
-		const bookMove = getMassiveBookMove(board.moveHistory);
+	// CHANGED: async, since it now awaits the book-move fetch. Callers must
+	// `await engine.getBestMove(...)` where they previously called it
+	// synchronously.
+	async getBestMove(
+		board: ChessBoard,
+		maxDepth: number,
+	): Promise<ChessMove | null> {
+		const bookMove = await getMassiveBookMove(board.moveHistory);
 		if (bookMove) {
 			return bookMove;
 		}
 
-		// Fall back to search optimization if book line is absent
 		const moves = this.getAllLegalMoves(board);
 		if (moves.length === 0) return null;
 
@@ -408,7 +388,6 @@ export class ChessEngine {
 			const piece = board.getPieceAtSquare(move.from)!;
 			nextBoard.movePiece(move, piece.pieceType, piece.color);
 
-			// Post-move validation: skip illegal lines that compromise the King
 			if (nextBoard.isChecked(board.sideToMove)) {
 				continue;
 			}
@@ -447,7 +426,6 @@ export class ChessEngine {
 			const piece = board.getPieceAtSquare(move.from)!;
 			nextBoard.movePiece(move, piece.pieceType, piece.color);
 
-			// Post-move validation: Filter out illegal variations dynamically
 			if (nextBoard.isChecked(board.sideToMove)) {
 				continue;
 			}
@@ -464,12 +442,11 @@ export class ChessEngine {
 			if (score > alpha) alpha = score;
 		}
 
-		// Terminal assessment (Checkmate vs Stalemate) executed seamlessly at zero-cost
 		if (legalMovesCount === 0) {
 			if (board.isChecked(board.sideToMove)) {
-				return -Infinity + depth; // Checkmate
+				return -Infinity + depth;
 			}
-			return 0; // Stalemate
+			return 0;
 		}
 
 		return alpha;

@@ -21,6 +21,11 @@
 		"erasableSyntaxOnly": true,
 		"noFallthroughCasesInSwitch": true
 	},
-	"include": ["src"],
+	"include": [
+		"src",
+		"server/dataBase.ts",
+		"server/importBook.ts",
+		"server/index.ts"
+	],
 	"exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

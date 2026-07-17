@@ -9,25 +9,26 @@ export interface GameOverInfo {
 }
 
 export function useGameState(
-	initialTimeSec: number = TimeManagementSec.Minute,
+	initialTimeSec: number = TimeManagementSec.TenMin,
 ) {
 	// Single instance of engine logic inside standard state
 	const [board, setBoard] = useState(() => new ChessBoard());
 	const [selectedSquare, setSelectedSquare] = useState<number | null>(null);
 	const [legalMoves, setLegalMoves] = useState<number[]>([]);
 
-	// --- Clocks ---
+	// Clocks
 	const [whiteTimeSec, setWhiteTimeSec] = useState(initialTimeSec);
 	const [blackTimeSec, setBlackTimeSec] = useState(initialTimeSec);
 	const [clockRunning, setClockRunning] = useState(false);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-	// --- Game over ---
+	// Game over
 	const [gameOver, setGameOver] = useState<GameOverInfo | null>(null);
 
-	// --- Eval bar (left open for your engine — see EvalBar.tsx) ---
+	// Eval bar (left open for your engine — see EvalBar.tsx)
 	const [evalScore, setEvalScore] = useState(0); // centipawns, + favors white
 	const [showEvalBar, setShowEvalBar] = useState(true);
+	//const engine = new ChessEngine(5, "deri-fish");
 
 	const selectSquare = useCallback(
 		(sq: number) => {
@@ -86,7 +87,8 @@ export function useGameState(
 		(fromSq: number, toSq: number): boolean => {
 			if (gameOver) return false;
 			const pieceInfo = board.getPieceAtSquare(fromSq);
-			if (!pieceInfo || pieceInfo.color !== board.sideToMove) return false;
+			if (!pieceInfo || pieceInfo.color !== board.sideToMove)
+				return false;
 
 			const legal = board.getLegalMoves(fromSq);
 			if (!legal.includes(toSq)) return false;
@@ -118,6 +120,14 @@ export function useGameState(
 		(fromSq: number, toSq: number) => {
 			if (fromSq === toSq) return;
 			attemptMove(fromSq, toSq);
+			// setEvalScore(
+			// 	engine.alphaBetaSearch(
+			// 		board,
+			// 		engine.strength,
+			// 		-Infinity,
+			// 		Infinity,
+			// 	),
+			// );
 		},
 		[attemptMove],
 	);

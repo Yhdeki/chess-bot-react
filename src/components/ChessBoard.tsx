@@ -72,6 +72,7 @@ export default function ChessBoard() {
 				<div className="chess-board">{squares}</div>
 			</div>
 
+			<MoveHistory moves={board.moveHistory} />
 			<div className="players-container">
 				<ChessPlayer
 					id="white-player"
@@ -80,8 +81,6 @@ export default function ChessBoard() {
 					capturedPieces={capturedWhitePieces}
 				/>
 			</div>
-
-			<MoveHistory moves={board.moveHistory} />
 
 			{gameOver && (
 				<div className="game-over-banner">
