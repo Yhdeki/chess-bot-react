@@ -228,11 +228,12 @@ export class ChessEngine {
 			let mgScore = baseValues[type];
 			let egScore = baseValues[type];
 
-			if (type !== PieceType.Pawn && type !== PieceType.King) {
-				const mobilityCount = board.getPseudoLegalMoves(sq).length;
-				mgScore += mobilityCount * 2;
-				egScore += mobilityCount * 2;
-			}
+			// Removed this for now...
+			// if (type !== PieceType.Pawn && type !== PieceType.King) {
+			// 	const mobilityCount = board.getPseudoLegalMoves(sq).length;
+			// 	mgScore += mobilityCount * 2;
+			// 	egScore += mobilityCount * 2;
+			// }
 
 			switch (type) {
 				case PieceType.Pawn:
@@ -366,17 +367,12 @@ export class ChessEngine {
 		return moves;
 	}
 
-	// CHANGED: async, since it now awaits the book-move fetch. Callers must
-	// `await engine.getBestMove(...)` where they previously called it
-	// synchronously.
 	async getBestMove(
 		board: ChessBoard,
 		maxDepth: number,
 	): Promise<ChessMove | null> {
 		const bookMove = await getMassiveBookMove(board.moveHistory);
-		if (bookMove) {
-			return bookMove;
-		}
+		if (bookMove) return bookMove;
 
 		const moves = this.getAllLegalMoves(board);
 		if (moves.length === 0) return null;
@@ -388,21 +384,23 @@ export class ChessEngine {
 		let legalMovesCount = 0;
 
 		for (const move of sortedMoves) {
-			const nextBoard = board.clone();
 			const piece = board.getPieceAtSquare(move.from)!;
-			nextBoard.movePiece(move, piece.pieceType, piece.color);
+			const mover = board.sideToMove;
+			const undo = board.makeMove(move, piece.pieceType, piece.color);
 
-			if (nextBoard.isChecked(board.sideToMove)) {
+			if (board.isChecked(mover)) {
+				board.unmakeMove(undo);
 				continue;
 			}
 			legalMovesCount++;
 
 			const score = -this.alphaBetaSearch(
-				nextBoard,
+				board,
 				maxDepth - 1,
 				-beta,
 				-alpha,
 			);
+			board.unmakeMove(undo);
 
 			if (score > alpha) {
 				alpha = score;
@@ -426,21 +424,23 @@ export class ChessEngine {
 		let legalMovesCount = 0;
 
 		for (const move of sortedMoves) {
-			const nextBoard = board.clone();
 			const piece = board.getPieceAtSquare(move.from)!;
-			nextBoard.movePiece(move, piece.pieceType, piece.color);
+			const mover = board.sideToMove;
+			const undo = board.makeMove(move, piece.pieceType, piece.color);
 
-			if (nextBoard.isChecked(board.sideToMove)) {
+			if (board.isChecked(mover)) {
+				board.unmakeMove(undo);
 				continue;
 			}
 			legalMovesCount++;
 
 			const score = -this.alphaBetaSearch(
-				nextBoard,
+				board,
 				depth - 1,
 				-beta,
 				-alpha,
 			);
+			board.unmakeMove(undo);
 
 			if (score >= beta) return beta;
 			if (score > alpha) alpha = score;

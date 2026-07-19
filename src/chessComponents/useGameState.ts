@@ -3,9 +3,11 @@ import { ChessBoard } from "./chessBoard.ts";
 import {
 	type ChessMove,
 	Color,
+	GameState,
 	PieceType,
 	TimeManagementSec,
 } from "./types.ts";
+import { ChessEngine } from "./engine/engine.ts";
 
 export type GameOverReason = "checkmate" | "stalemate" | "timeout";
 export interface GameOverInfo {
@@ -14,7 +16,7 @@ export interface GameOverInfo {
 }
 
 export function useGameState(
-	initialTimeSec: number = TimeManagementSec.TenMin,
+	initialTimeSec: number = TimeManagementSec.Minute,
 ) {
 	// Single instance of engine logic inside standard state
 	const [board, setBoard] = useState(() => new ChessBoard());
@@ -33,7 +35,23 @@ export function useGameState(
 	// Eval bar (left open for your engine — see EvalBar.tsx)
 	const [evalScore, setEvalScore] = useState(0); // centipawns, + favors white
 	const [showEvalBar, setShowEvalBar] = useState(true);
-	//const engine = new ChessEngine(5, "deri-fish");
+	const engineRef = useRef<ChessEngine>(null);
+	if (!engineRef.current) engineRef.current = new ChessEngine(5, "deri-fish");
+
+	useEffect(() => {
+		if (gameOver) return;
+		const searchBoard = board.clone(); // one clone at the root only — keeps
+		// React state untouched, search
+		// internals still use make/unmake
+		const score = engineRef.current!.alphaBetaSearch(
+			searchBoard,
+			engineRef.current!.strength,
+			-Infinity,
+			Infinity,
+		);
+		const whiteRelative = board.sideToMove === Color.White ? score : -score;
+		setEvalScore(whiteRelative); // stays in centipawns
+	}, [board, gameOver]);
 
 	const selectSquare = useCallback(
 		(sq: number) => {
@@ -54,22 +72,22 @@ export function useGameState(
 
 	const makeMove = useCallback(
 		(move: ChessMove, pieceType: PieceType) => {
-			// 1. Create a deep clone of the board first
+			// Create a deep clone of the board first
 			const nextBoard = board.clone();
 
-			// 2. Apply the move (movePiece flips sideToMove internally)
+			// Apply the move (movePiece flips sideToMove internally)
 			nextBoard.movePiece(move, pieceType, board.sideToMove);
 
-			// 3. Update state
+			// Update state
 			setBoard(nextBoard);
 			setSelectedSquare(null);
 			setLegalMoves([]);
 
-			// 4. Check for game end
+			// Check for game end
 			const result = nextBoard.didGameEnd();
-			if (result !== null) {
+			if (result !== GameState.gameContinues) {
 				setClockRunning(false);
-				if (result === 1) {
+				if (result === GameState.checkmate) {
 					// side to move (after the flip) has no moves and is in check -> they lost
 					setGameOver({
 						reason: "checkmate",
@@ -125,15 +143,8 @@ export function useGameState(
 		(fromSq: number, toSq: number) => {
 			if (fromSq === toSq) return;
 			attemptMove(fromSq, toSq);
-			// setEvalScore(
-			// 	engine.alphaBetaSearch(
-			// 		board,
-			// 		engine.strength,
-			// 		-Infinity,
-			// 		Infinity,
-			// 	),
-			// );
 		},
+
 		[attemptMove],
 	);
 

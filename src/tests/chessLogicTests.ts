@@ -1,7 +1,12 @@
 import * as readline from "readline/promises";
 import { stdin as input, stdout as output } from "process";
 import { ChessBoard } from "../chessComponents/chessBoard.ts";
-import { PieceType, Color } from "../chessComponents/types.ts";
+import {
+	PieceType,
+	Color,
+	GameState,
+	type ChessMove,
+} from "../chessComponents/types.ts";
 import { ChessEngine } from "../chessComponents/engine/engine.ts";
 
 // Visual symbols for rendering the board cleanly in the console
@@ -81,15 +86,13 @@ async function runGameLoop() {
 
 		// Check if game reached terminal state
 		const gameEndStatus = board.didGameEnd();
-		if (gameEndStatus !== null) {
-			if (gameEndStatus === 0) {
+		if (gameEndStatus !== GameState.gameContinues) {
+			if (gameEndStatus === GameState.draw) {
 				console.log(
 					"Game Over! Draw by Stalemate / Insufficient Material.",
 				);
-			} else if (gameEndStatus > 0) {
-				console.log("Game Over! White wins by Checkmate.");
-			} else {
-				console.log("Game Over! Black wins by Checkmate.");
+			} else if (gameEndStatus === GameState.checkmate) {
+				console.log("Game Over! Wins by Checkmate.");
 			}
 			break;
 		}
@@ -102,14 +105,11 @@ async function runGameLoop() {
 
 		console.log(
 			"The engine thinks the position is: " +
-				engine.alphaBetaSearch(board, 3, -Infinity, Infinity),
+				engine.alphaBetaSearch(board, 5, -Infinity, Infinity) / 100,
 		);
 		const bestMove = await engine.getBestMove(board, 5);
 		console.log(
-			"The engine thinks the best move is: " +
-				bestMove?.from +
-				"," +
-				bestMove?.to,
+			"The engine thinks the best move is: " + convertMoveToLAN(bestMove),
 		);
 		const inputMove = await rl.question(
 			`${activePlayerColor} to move${isCurrentlyChecked}: `,
@@ -175,7 +175,22 @@ async function runGameLoop() {
 
 	rl.close();
 }
+function indexToAlgebraic(index: number): string {
+	const file = index % 8;
+	const rank = Math.floor(index / 8); // Invert since 0-index is a8
 
+	const fileChar = String.fromCharCode(97 + file); // a=97, b=98, etc.
+	const rankChar = (rank + 1).toString();
+
+	return fileChar + rankChar;
+}
+
+function convertMoveToLAN(move: ChessMove | null): string {
+	if (move === null) {
+		return "Couldn't find move";
+	}
+	return indexToAlgebraic(move.from) + indexToAlgebraic(move.to);
+}
 // Fire execution loop
 runGameLoop().catch((err) =>
 	console.error("Runtime error during engine test:", err),

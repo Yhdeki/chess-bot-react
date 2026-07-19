@@ -12,10 +12,27 @@ import {
 	type ChessMove,
 	getPieceNameByType,
 	type ChessPiece,
+	GameState,
 } from "./types.ts";
 
 const sqToBB = (sq: number): bigint => 1n << BigInt(sq);
 const SIDE_LEN = 8;
+
+export interface UndoInfo {
+	move: ChessMove;
+	pieceType: PieceType;
+	color: Color;
+	capturedPieceType: PieceType | null;
+	capturedColor: Color | null;
+	capturedSquare: number | null;
+	prevCastlingMask: number;
+	prevEnPassantSquare: number | null;
+	wasCastle: boolean;
+	rookFrom?: number;
+	rookTo?: number;
+	wasPromotion: boolean;
+}
+
 export class ChessBoard {
 	public pieces: bigint[] = new Array(12).fill(0n);
 	public colors: bigint[] = new Array(2).fill(0n);
@@ -501,7 +518,242 @@ export class ChessBoard {
 		this.updateOccupancy();
 	}
 
-	public didGameEnd(): number | null {
+	/**
+	 * Make/unmake variant of movePiece for use in search: mutates this board
+	 * in place and returns everything needed to exactly reverse the move via
+	 * unmakeMove(). Avoids the allocation cost of clone() at every search node.
+	 */
+	public makeMove(
+		move: ChessMove,
+		pieceType: PieceType,
+		color: Color,
+	): UndoInfo {
+		const fromMask = sqToBB(move.from);
+		const toMask = sqToBB(move.to);
+		const pIdx = color * 6 + pieceType;
+		const enemyColor = color === Color.White ? Color.Black : Color.White;
+
+		const undo: UndoInfo = {
+			move: { ...move },
+			pieceType,
+			color,
+			capturedPieceType: null,
+			capturedColor: null,
+			capturedSquare: null,
+			prevCastlingMask: this.castlingMask,
+			prevEnPassantSquare: this.enPassantSquare,
+			wasCastle: false,
+			wasPromotion: false,
+		};
+
+		let nextEnPassantSquare: number | null = null;
+
+		// Handle Castling Execution
+		if (
+			pieceType === PieceType.King &&
+			Math.abs(move.to - move.from) === 2
+		) {
+			undo.wasCastle = true;
+			if (move.to === 6) {
+				this.pieces[Color.White * 6 + PieceType.Rook] ^=
+					sqToBB(7) | sqToBB(5);
+				this.mailbox[4] = null;
+				this.mailbox[6] = {
+					pieceType: PieceType.King,
+					color: Color.White,
+				};
+				this.mailbox[7] = null;
+				this.mailbox[5] = {
+					pieceType: PieceType.Rook,
+					color: Color.White,
+				};
+				undo.rookFrom = 7;
+				undo.rookTo = 5;
+			} else if (move.to === 2) {
+				this.pieces[Color.White * 6 + PieceType.Rook] ^=
+					sqToBB(0) | sqToBB(3);
+				this.mailbox[4] = null;
+				this.mailbox[2] = {
+					pieceType: PieceType.King,
+					color: Color.White,
+				};
+				this.mailbox[0] = null;
+				this.mailbox[3] = {
+					pieceType: PieceType.Rook,
+					color: Color.White,
+				};
+				undo.rookFrom = 0;
+				undo.rookTo = 3;
+			} else if (move.to === 62) {
+				this.pieces[Color.Black * 6 + PieceType.Rook] ^=
+					sqToBB(63) | sqToBB(61);
+				this.mailbox[60] = null;
+				this.mailbox[62] = {
+					pieceType: PieceType.King,
+					color: Color.Black,
+				};
+				this.mailbox[63] = null;
+				this.mailbox[61] = {
+					pieceType: PieceType.Rook,
+					color: Color.Black,
+				};
+				undo.rookFrom = 63;
+				undo.rookTo = 61;
+			} else if (move.to === 58) {
+				this.pieces[Color.Black * 6 + PieceType.Rook] ^=
+					sqToBB(56) | sqToBB(59);
+				this.mailbox[60] = null;
+				this.mailbox[58] = {
+					pieceType: PieceType.King,
+					color: Color.Black,
+				};
+				this.mailbox[56] = null;
+				this.mailbox[59] = {
+					pieceType: PieceType.Rook,
+					color: Color.Black,
+				};
+				undo.rookFrom = 56;
+				undo.rookTo = 59;
+			}
+		}
+
+		// Handle En Passant Capture Logic
+		if (pieceType === PieceType.Pawn && move.to === this.enPassantSquare) {
+			const epCaptureSq =
+				color === Color.White ? move.to - SIDE_LEN : move.to + SIDE_LEN;
+			this.pieces[enemyColor * 6 + PieceType.Pawn] &=
+				~sqToBB(epCaptureSq);
+			this.mailbox[epCaptureSq] = null;
+
+			undo.capturedPieceType = PieceType.Pawn;
+			undo.capturedColor = enemyColor;
+			undo.capturedSquare = epCaptureSq;
+
+			this.capturedPieces.push({
+				pieceType: PieceType.Pawn,
+				color: enemyColor,
+			});
+		}
+
+		// Handle Standard Captures
+		if ((toMask & this.combinedOccupancy) !== 0n) {
+			for (let i = enemyColor * 6; i < enemyColor * 6 + 6; i++) {
+				if ((this.pieces[i] & toMask) !== 0n) {
+					this.pieces[i] &= ~toMask;
+					undo.capturedPieceType = (i - enemyColor * 6) as PieceType;
+					undo.capturedColor = enemyColor;
+					undo.capturedSquare = move.to;
+					this.capturedPieces.push({
+						pieceType: undo.capturedPieceType,
+						color: enemyColor,
+					});
+					break;
+				}
+			}
+		}
+
+		// Update Moving Piece Location
+		this.pieces[pIdx] &= ~fromMask;
+		this.pieces[pIdx] |= toMask;
+
+		this.mailbox[move.from] = null;
+		this.mailbox[move.to] = { pieceType: pieceType, color: color };
+
+		// Handle Pawn Double Steps (Setting up new EP targets)
+		if (
+			pieceType === PieceType.Pawn &&
+			Math.abs(move.to - move.from) === 16
+		) {
+			nextEnPassantSquare =
+				color === Color.White ? move.from + 8 : move.from - 8;
+		}
+
+		// Handle Pawn Promotions
+		if (
+			pieceType === PieceType.Pawn &&
+			(Math.floor(move.to / 8) === 7 || Math.floor(move.to / 8) === 0)
+		) {
+			this.pieces[pIdx] &= ~toMask;
+			const promoPiece =
+				move.promotion !== undefined ? move.promotion : PieceType.Queen;
+			this.pieces[color * 6 + promoPiece] |= toMask;
+			this.mailbox[move.to] = { pieceType: promoPiece, color: color };
+			undo.wasPromotion = true;
+		}
+
+		// Dynamic Castling Rights Revocation
+		if (pieceType === PieceType.King) {
+			this.castlingMask &= color === Color.White ? ~3 : ~12;
+		} else if (pieceType === PieceType.Rook) {
+			if (move.from === 0) this.castlingMask &= ~CASTLE_RIGHTS.WQ;
+			if (move.from === 7) this.castlingMask &= ~CASTLE_RIGHTS.WK;
+			if (move.from === 56) this.castlingMask &= ~CASTLE_RIGHTS.BQ;
+			if (move.from === 63) this.castlingMask &= ~CASTLE_RIGHTS.BK;
+		}
+
+		this.enPassantSquare = nextEnPassantSquare;
+		this.sideToMove = enemyColor;
+		this.totalNumOfMoves++;
+		this.moveHistory.push({ ...move });
+		this.updateOccupancy();
+
+		return undo;
+	}
+
+	public unmakeMove(undo: UndoInfo): void {
+		const { move, pieceType, color } = undo;
+		const fromMask = sqToBB(move.from);
+		const toMask = sqToBB(move.to);
+
+		this.sideToMove = color;
+		this.totalNumOfMoves--;
+		this.moveHistory.pop();
+		this.castlingMask = undo.prevCastlingMask;
+		this.enPassantSquare = undo.prevEnPassantSquare;
+
+		if (undo.wasPromotion) {
+			const promoPiece =
+				move.promotion !== undefined ? move.promotion : PieceType.Queen;
+			this.pieces[color * 6 + promoPiece] &= ~toMask;
+			this.pieces[color * 6 + PieceType.Pawn] |= fromMask;
+		} else {
+			const pIdx = color * 6 + pieceType;
+			this.pieces[pIdx] &= ~toMask;
+			this.pieces[pIdx] |= fromMask;
+		}
+
+		this.mailbox[move.from] = { pieceType, color };
+		this.mailbox[move.to] = null;
+
+		if (
+			undo.capturedPieceType !== null &&
+			undo.capturedColor !== null &&
+			undo.capturedSquare !== null
+		) {
+			this.pieces[undo.capturedColor * 6 + undo.capturedPieceType] |=
+				sqToBB(undo.capturedSquare);
+			this.mailbox[undo.capturedSquare] = {
+				pieceType: undo.capturedPieceType,
+				color: undo.capturedColor,
+			};
+			this.capturedPieces.pop();
+		}
+
+		if (
+			undo.wasCastle &&
+			undo.rookFrom !== undefined &&
+			undo.rookTo !== undefined
+		) {
+			this.pieces[color * 6 + PieceType.Rook] ^=
+				sqToBB(undo.rookFrom) | sqToBB(undo.rookTo);
+			this.mailbox[undo.rookTo] = null;
+			this.mailbox[undo.rookFrom] = { pieceType: PieceType.Rook, color };
+		}
+
+		this.updateOccupancy();
+	}
+
+	public didGameEnd(): GameState | null {
 		// Check if the current player has any legal moves available
 		let hasLegalMoves = false;
 		for (let sq = 0; sq < 64; sq++) {
@@ -517,24 +769,24 @@ export class ChessBoard {
 		if (!hasLegalMoves) {
 			// If no legal moves and king is attacked, it's checkmate
 			if (this.isChecked(this.sideToMove)) {
-				return 1;
+				return GameState.checkmate;
 			}
 			// No legal moves and king is safe means stalemate
-			return 0;
+			return GameState.draw;
 		}
 
-		return null; // Game continues
+		return GameState.gameContinues; // Game continues
 	}
 
 	public clone(): ChessBoard {
-		const copy = new ChessBoard(this.pieces);
+		const copy = new ChessBoard(this.pieces, this.mailbox);
 		copy.sideToMove = this.sideToMove;
 		copy.castlingMask = this.castlingMask;
 		copy.enPassantSquare = this.enPassantSquare;
 		copy.halfMoveClock = this.halfMoveClock;
 		copy.totalNumOfMoves = this.totalNumOfMoves;
-		copy.moveHistory = this.moveHistory.map((m) => ({ ...m })); // Maintain move history clone
-		copy.capturedPieces = this.capturedPieces.map((p) => ({ ...p }));
+		// copy.moveHistory = this.moveHistory.map((m) => ({ ...m }));
+		// copy.capturedPieces = this.capturedPieces.map((p) => ({ ...p }));
 		return copy;
 	}
 
@@ -549,14 +801,18 @@ export class ChessBoard {
 		return squares;
 	}
 
+	private static readonly DEBRUIJN64 = 0x03f79d71b4cb0a89n;
+	private static readonly MASK64 = 0xffffffffffffffffn;
+	private static readonly INDEX64 = [
+		0, 1, 48, 2, 57, 49, 28, 3, 61, 58, 50, 42, 38, 29, 17, 4, 62, 55, 59,
+		36, 53, 51, 43, 22, 45, 39, 33, 30, 24, 18, 12, 5, 63, 47, 56, 27, 60,
+		41, 37, 16, 54, 35, 52, 21, 44, 32, 23, 11, 46, 26, 40, 15, 34, 20, 31,
+		10, 25, 14, 19, 9, 13, 8, 7, 6,
+	];
 	private bitScanForward(mask: bigint): bigint {
 		if (mask === 0n) return -1n;
-		let count = 0n;
-		let temp = mask;
-		while ((temp & 1n) === 0n) {
-			count++;
-			temp >>= 1n;
-		}
-		return count;
+		const isolated = mask & -mask; // isolates the lowest set bit
+		const product = (isolated * ChessBoard.DEBRUIJN64) & ChessBoard.MASK64;
+		return BigInt(ChessBoard.INDEX64[Number(product >> 58n)]);
 	}
 }

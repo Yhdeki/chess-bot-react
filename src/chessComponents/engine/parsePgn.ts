@@ -3,7 +3,7 @@ import { ChessBoard } from "../chessBoard.ts";
 import { PieceType, Color, type ChessMove } from "../types.ts";
 
 // =========================================================================
-// 1. DATABASE INITIALIZATION (Matches mega_opening_book.db expected by engine)
+// DATABASE INITIALIZATION (Matches mega_opening_book.db expected by engine)
 // =========================================================================
 const db = new Database("mega_opening_book.db");
 
@@ -27,7 +27,7 @@ const upsertStmt = db.prepare(`
 `);
 
 // =========================================================================
-// 2. MOVE FORMAT CONVERSION UTILITIES (Imported directly by engine.ts)
+// MOVE FORMAT CONVERSION UTILITIES (Imported directly by engine.ts)
 // =========================================================================
 export function moveToUci(move: ChessMove): string {
 	const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
@@ -69,7 +69,7 @@ export function uciToMove(uci: string): ChessMove {
 }
 
 // =========================================================================
-// 3. SAN (Standard Algebraic Notation) TO INTERNAL COORDINATES TRANSLATOR
+// SAN (Standard Algebraic Notation) TO INTERNAL COORDINATES TRANSLATOR
 // =========================================================================
 function parseSanMove(san: string, board: ChessBoard): ChessMove | null {
 	// Clean trailing checks or checkmates
@@ -163,9 +163,9 @@ function parseSanMove(san: string, board: ChessBoard): ChessMove | null {
 }
 
 // =========================================================================
-// 4. MAIN PIPELINE EXECUTION
+// MAIN PIPELINE EXECUTION
 // =========================================================================
-export async function convertToDb(filePath: string) {
+export async function convertToDb() {
 	console.log("Reading PGN archive...");
 	const content = await fetch("/openings.pgn").then((r) => r.text());
 

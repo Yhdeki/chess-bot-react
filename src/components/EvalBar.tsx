@@ -15,7 +15,8 @@ interface Props {
 //   2. Pass evalScore from useGameState down into <EvalBar value={evalScore} />.
 // That's the entire integration surface — nothing else needs to change.
 
-const MAX_EVAL_CP = 1000; // clamp bar scaling at +/-10 pawns of advantage
+const MAX_EVAL_CP = 1000;   // clamp bar scaling at +/-10 pawns
+const MATE_THRESHOLD = 100_000; // anything at this scale can only be a mate score
 
 function EvalBar({ value, id, visible, onToggleVisible }: Props) {
 	if (!visible) {
@@ -31,12 +32,11 @@ function EvalBar({ value, id, visible, onToggleVisible }: Props) {
 	}
 
 	const clamped = Math.max(-MAX_EVAL_CP, Math.min(MAX_EVAL_CP, value));
-	// 50% = equal. Positive value shifts the split in white's favor.
 	const whitePercent = 50 + (clamped / MAX_EVAL_CP) * 50;
 
 	const displayScore =
-		Math.abs(value) >= 10000
-			? `#${value > 0 ? "" : "-"}` // mate-in-N convention left to caller if desired
+		Math.abs(value) >= MATE_THRESHOLD
+			? `#${value > 0 ? "" : "-"}`
 			: (value / 100).toFixed(1);
 
 	return (

@@ -15,13 +15,9 @@ function initPrecomputedTables() {
 		const file = sq % 8;
 		const bb = 1n << BigInt(sq);
 
-		// 1. Precompute Knights
+		// Precompute Knights
 		const knightOffsets = [17, 15, 10, 6, -6, -10, -15, -17];
-		// BUGFIX: masks were previously paired with the wrong offsets (each one
-		// swapped with its east/west mirror), which let some knight moves wrap
-		// around the board edge (e.g. a1 incorrectly "attacked" c2's mirror on
-		// the h-file) and dropped other legal ones. Verified against known
-		// knight-move squares on corners, edges, and center before/after.
+
 		const knightMasks = [
 			0xfefefefefefefefen, // +17 (up2,right1 / noNoEa) -> exclude file A wrap
 			0x7f7f7f7f7f7f7f7fn, // +15 (up2,left1  / noNoWe) -> exclude file H wrap
@@ -43,7 +39,7 @@ function initPrecomputedTables() {
 			}
 		}
 
-		// 2. Precompute Kings
+		// Precompute Kings
 		const kingOffsets = [9, 8, 7, 1, -1, -7, -8, -9];
 		for (const offset of kingOffsets) {
 			const targetSq = sq + offset;
@@ -56,7 +52,7 @@ function initPrecomputedTables() {
 			}
 		}
 
-		// 3. Precompute Sliding Rays (Fallback for complex Magic Tables initialization)
+		// Precompute Sliding Rays (Fallback for complex Magic Tables initialization)
 		for (let d = 0; d < 8; d++) {
 			let currentSq = sq;
 			const delta = DIRECTIONS[d];

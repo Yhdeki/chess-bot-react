@@ -6,10 +6,7 @@ export const PieceType = {
 	Queen: 4,
 	King: 5,
 } as const;
-export interface ChessPiece {
-	pieceType: PieceType;
-	color: Color;
-}
+
 export const Color = {
 	White: 0,
 	Black: 1,
@@ -24,7 +21,20 @@ export const TimeManagementSec = {
 	TenMin: 600,
 	ThirtyMin: 1800,
 } as const;
-
+export const GameState = {
+	gameContinues: 0,
+	checkmate: 1,
+	draw: 2,
+};
+export interface ChessMove {
+	from: number;
+	to: number;
+	promotion?: PieceType;
+}
+export interface ChessPiece {
+	pieceType: PieceType;
+	color: Color;
+}
 export const CASTLE_RIGHTS = {
 	WK: 0b0001, // White Kingside (1)
 	WQ: 0b0010, // White Queen-side (2)
@@ -32,16 +42,6 @@ export const CASTLE_RIGHTS = {
 	BQ: 0b1000, // Black Queen-side (8)
 	NONE: 0b0000, // Neither player can castle
 };
-export interface ChessMove {
-	from: number;
-	to: number;
-	promotion?: PieceType;
-}
-export type PieceType = (typeof PieceType)[keyof typeof PieceType];
-export type Color = (typeof Color)[keyof typeof Color];
-export type TimeManagementSec =
-	(typeof TimeManagementSec)[keyof typeof TimeManagementSec];
-
 export function getPieceTypeByScore(score: number): PieceType {
 	switch (score) {
 		case 1:
@@ -76,3 +76,9 @@ export function getPieceNameByType(type: PieceType): string | null {
 			return null;
 	}
 }
+
+export type PieceType = (typeof PieceType)[keyof typeof PieceType];
+export type Color = (typeof Color)[keyof typeof Color];
+export type GameState = (typeof GameState)[keyof typeof GameState];
+export type TimeManagementSec =
+	(typeof TimeManagementSec)[keyof typeof TimeManagementSec];
